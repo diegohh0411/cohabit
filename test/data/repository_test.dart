@@ -6,7 +6,6 @@ import 'package:cohabit/domain/day_state.dart';
 import 'package:cohabit/domain/event.dart';
 import 'package:cohabit/domain/habit_day.dart';
 import 'package:cohabit/domain/hlc.dart';
-import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 

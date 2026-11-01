@@ -65,7 +65,7 @@ class _DayPageState extends ConsumerState<DayPage> {
               children: [
                 for (final habit in habits) ...[
                   HabitDayTile(
-                    key: ValueKey('${_day}-${habit.id}'),
+                    key: ValueKey('$_day-${habit.id}'),
                     habit: habit,
                     day: _day,
                     logged: states[habit.id]?.state,

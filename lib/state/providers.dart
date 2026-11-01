@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/repository.dart';
@@ -21,23 +23,33 @@ final dayBoundaryProvider = StreamProvider<int>(
 );
 
 /// The current habit day, following the configured boundary.
-final todayProvider = StreamProvider<HabitDay>((ref) async* {
+///
+/// Built on a controller rather than `async*`: a suspended generator ignores
+/// cancellation until its next `yield`, which would leave the timer running.
+final todayProvider = StreamProvider<HabitDay>((ref) {
   final now = ref.watch(nowProvider);
   final tick = ref.watch(dayTickProvider);
-  final boundary = await ref.watch(dayBoundaryProvider.future);
-  HabitDay compute() => habitDayFor(now(), boundaryMinutes: boundary);
+  final boundary = ref.watch(dayBoundaryProvider).value;
+  // Stay loading until the stored boundary is known; this provider rebuilds
+  // when it arrives.
+  if (boundary == null) return const Stream.empty();
 
+  HabitDay compute() => habitDayFor(now(), boundaryMinutes: boundary);
+  final controller = StreamController<HabitDay>();
   var current = compute();
-  yield current;
-  // A periodic stream (unlike a bare delayed future) is cancelled with the
-  // provider, leaving no timer behind.
-  await for (final _ in Stream<void>.periodic(tick)) {
+  controller.add(current);
+  final timer = Timer.periodic(tick, (_) {
     final next = compute();
     if (next != current) {
       current = next;
-      yield current;
+      controller.add(next);
     }
-  }
+  });
+  ref.onDispose(() {
+    timer.cancel();
+    controller.close();
+  });
+  return controller.stream;
 });
 
 /// Active (non-archived) habits.

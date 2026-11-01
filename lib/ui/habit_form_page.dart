@@ -24,7 +24,7 @@ class _HabitFormPageState extends ConsumerState<HabitFormPage> {
   );
   late HabitPolarity _polarity =
       widget.habit?.polarity ?? HabitPolarity.positive;
-  late Set<int> _schedule = {...(widget.habit?.schedule ?? everyDay)};
+  late final Set<int> _schedule = {...(widget.habit?.schedule ?? everyDay)};
 
   bool get _isEdit => widget.habit != null;
   bool get _valid => _name.text.trim().isNotEmpty && _schedule.isNotEmpty;
