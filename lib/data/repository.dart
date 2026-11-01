@@ -71,7 +71,12 @@ class CohabitRepository {
     return _db.transaction(() async {
       if (event.deviceId != deviceId) _clock.receive(event.hlc);
 
-      final inserted = await _db
+      final seen = await (_db.select(
+        _db.events,
+      )..where((e) => e.id.equals(event.id))).getSingleOrNull();
+      if (seen != null) return false;
+
+      await _db
           .into(_db.events)
           .insert(
             EventsCompanion.insert(
