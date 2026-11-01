@@ -61,6 +61,7 @@ Habit? foldHabit(Iterable<Event> events) {
 
   var name = created.payload['name']! as String;
   var schedule = _schedule(created.payload['schedule']);
+  final history = [ScheduleChange(from: null, schedule: schedule)];
   DateTime? archivedAt;
 
   for (final e in sorted) {
@@ -69,6 +70,9 @@ Habit? foldHabit(Iterable<Event> events) {
         if (e.payload['name'] != null) name = e.payload['name']! as String;
         if (e.payload['schedule'] != null) {
           schedule = _schedule(e.payload['schedule']);
+          history.add(
+            ScheduleChange(from: scheduleEffectiveFrom(e), schedule: schedule),
+          );
         }
       case EventTypes.habitArchived:
         archivedAt = DateTime.parse(e.payload['archivedAt']! as String);
@@ -82,6 +86,20 @@ Habit? foldHabit(Iterable<Event> events) {
     schedule: schedule,
     createdDay: HabitDay.parse(created.payload['createdDay']! as String),
     archivedAt: archivedAt,
+    scheduleHistory: history,
+  );
+}
+
+/// The habit day from which the schedule set by [edit] applies.
+///
+/// New edits record `effectiveFrom`. Edits written before schedule history
+/// existed do not, so they fall back to the UTC calendar date of their HLC:
+/// close to the real day, and identical on every device.
+HabitDay scheduleEffectiveFrom(Event edit) {
+  final raw = edit.payload['effectiveFrom'] as String?;
+  if (raw != null) return HabitDay.parse(raw);
+  return HabitDay.fromDate(
+    DateTime.fromMillisecondsSinceEpoch(edit.hlc.wallMillis, isUtc: true),
   );
 }
 

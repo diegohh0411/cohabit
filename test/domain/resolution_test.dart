@@ -235,4 +235,119 @@ void main() {
       expect(habit.effectiveState(monday, DayState.skipped), DayState.skipped);
     });
   });
+  group('schedule history', () {
+    // created(): Mon, Wed, Fri since 2026-11-01 (a Sunday).
+    Event scheduleEdit(
+      String id, {
+      required int wall,
+      required List<int> schedule,
+      String? effectiveFrom,
+      String device = 'A',
+    }) => habitEvent(
+      EventTypes.habitEdited,
+      id,
+      wall: wall,
+      device: device,
+      payload: {'schedule': schedule, 'effectiveFrom': ?effectiveFrom},
+    );
+
+    final mon2 = HabitDay(2026, 11, 2);
+    final tue3 = HabitDay(2026, 11, 3);
+    final wed4 = HabitDay(2026, 11, 4);
+    final tue10 = HabitDay(2026, 11, 10);
+
+    test('an edit applies only from its effective day', () {
+      final habit = foldHabit([
+        created(),
+        scheduleEdit(
+          's1',
+          wall: 5,
+          schedule: [2, 4],
+          effectiveFrom: '2026-11-05',
+        ),
+      ])!;
+      expect(habit.schedule, {2, 4}); // latest
+      // Before the edit took effect, the old Mon/Wed/Fri schedule holds.
+      expect(habit.isScheduledOn(mon2), isTrue);
+      expect(habit.isScheduledOn(tue3), isFalse);
+      expect(habit.isScheduledOn(wed4), isTrue); // Wed: still the old schedule
+      expect(
+        habit.isScheduledOn(HabitDay(2026, 11, 5)),
+        isTrue,
+      ); // Thu: the edit day
+      // From the edit day on, Tue/Thu.
+      expect(habit.isScheduledOn(HabitDay(2026, 11, 6)), isFalse); // Fri
+      expect(habit.isScheduledOn(tue10), isTrue);
+    });
+
+    test('unlogged past days follow the schedule of their day', () {
+      final habit = foldHabit([
+        created(),
+        scheduleEdit('s1', wall: 5, schedule: [2], effectiveFrom: '2026-11-04'),
+      ])!;
+      expect(habit.effectiveState(mon2, null), DayState.unknown);
+      expect(habit.effectiveState(tue3, null), DayState.skipped);
+      expect(habit.effectiveState(tue10, null), DayState.unknown);
+      expect(
+        habit.effectiveState(HabitDay(2026, 11, 9), null),
+        DayState.skipped,
+      );
+    });
+
+    test('days before creation use the creation schedule', () {
+      final habit = foldHabit([
+        created(),
+        scheduleEdit('s1', wall: 5, schedule: [2], effectiveFrom: '2026-11-04'),
+      ])!;
+      expect(habit.isScheduledOn(HabitDay(2026, 10, 30)), isTrue); // Fri
+      expect(habit.isScheduledOn(HabitDay(2026, 10, 27)), isFalse); // Tue
+    });
+
+    test('later edit wins where several apply; result ignores input order', () {
+      final events = [
+        created(),
+        scheduleEdit('a', wall: 5, schedule: [2], effectiveFrom: '2026-11-10'),
+        scheduleEdit(
+          'b',
+          wall: 6,
+          schedule: [4],
+          effectiveFrom: '2026-11-03',
+          device: 'B',
+        ),
+      ];
+      final forward = foldHabit(events)!;
+      final backward = foldHabit(events.reversed)!;
+      for (final h in [forward, backward]) {
+        expect(h.schedule, {4});
+        expect(h.scheduleOn(tue3), {4}); // only b has taken effect
+        expect(h.scheduleOn(tue10), {4}); // both apply; b is later
+        expect(h.scheduleOn(mon2), {1, 3, 5}); // neither yet
+      }
+      expect(forward.scheduleHistory, backward.scheduleHistory);
+    });
+
+    test('edits that predate effectiveFrom use their HLC date in UTC', () {
+      // 2026-11-04T12:00:00Z
+      final wall = DateTime.utc(2026, 11, 4, 12).millisecondsSinceEpoch;
+      final habit = foldHabit([
+        created(),
+        scheduleEdit('legacy', wall: wall, schedule: [2]),
+      ])!;
+      expect(habit.scheduleOn(tue3), {1, 3, 5});
+      expect(habit.scheduleOn(wed4), {2});
+    });
+
+    test('name-only edits leave the schedule history alone', () {
+      final habit = foldHabit([
+        created(),
+        habitEvent(
+          EventTypes.habitEdited,
+          'n',
+          wall: 4,
+          payload: {'name': 'Jog'},
+        ),
+      ])!;
+      expect(habit.scheduleHistory, hasLength(1));
+    });
+  });
 }

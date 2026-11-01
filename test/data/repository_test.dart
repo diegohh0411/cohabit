@@ -141,6 +141,64 @@ void main() {
     });
   });
 
+  group('schedule history', () {
+    test('an edit applies from today and leaves earlier days alone', () async {
+      // Sunday 1 Nov; Mon/Wed/Fri.
+      final id = await newHabit(schedule: {1, 3, 5});
+      final tue = HabitDay(2026, 11, 3);
+      expect((await repo.habit(id))!.isScheduledOn(tue), isFalse);
+
+      now = DateTime(2026, 11, 3, 10, 0); // Tue
+      await repo.editHabit(id, schedule: {2, 4});
+      final habit = (await repo.habit(id))!;
+
+      expect(habit.schedule, {2, 4});
+      expect(habit.isScheduledOn(tue), isTrue); // the edit day itself
+      expect(habit.isScheduledOn(HabitDay(2026, 11, 2)), isTrue); // Mon, old
+      expect(habit.isScheduledOn(HabitDay(2026, 11, 9)), isFalse); // Mon, new
+      expect(
+        habit.effectiveState(HabitDay(2026, 11, 2), null),
+        DayState.unknown,
+      );
+      expect((await repo.events()).last.payload['effectiveFrom'], '2026-11-03');
+    });
+
+    test('edit day respects the day boundary', () async {
+      final id = await newHabit(schedule: {1, 3, 5});
+      now = DateTime(2026, 11, 3, 1, 0); // before 03:00: still Monday
+      await repo.editHabit(id, schedule: {2});
+      final habit = (await repo.habit(id))!;
+      expect(habit.scheduleOn(HabitDay(2026, 11, 2)), {2});
+      expect(habit.scheduleOn(HabitDay(2026, 11, 1)), {1, 3, 5});
+    });
+
+    test('history survives rebuild and reload', () async {
+      final id = await newHabit(schedule: {1, 3, 5});
+      now = DateTime(2026, 11, 3, 10, 0);
+      await repo.editHabit(id, schedule: {2, 4});
+      now = DateTime(2026, 11, 10, 10, 0);
+      await repo.editHabit(id, schedule: {6});
+      final live = (await repo.habit(id))!.scheduleHistory;
+      expect(live, hasLength(3));
+
+      await repo.rebuildProjections();
+      expect((await repo.habit(id))!.scheduleHistory, live);
+    });
+
+    test('a pre-schema-2 projection is refolded on open', () async {
+      final id = await newHabit(schedule: {1, 3, 5});
+      now = DateTime(2026, 11, 3, 10, 0);
+      await repo.editHabit(id, schedule: {2, 4});
+      // As rows looked before the column existed.
+      await db.customStatement("UPDATE habits SET schedule_history = ''");
+
+      final reopened = await CohabitRepository.open(db, now: () => now);
+      final habit = (await reopened.habit(id))!;
+      expect(habit.scheduleOn(HabitDay(2026, 11, 2)), {1, 3, 5});
+      expect(habit.scheduleOn(HabitDay(2026, 11, 3)), {2, 4});
+    });
+  });
+
   group('day states', () {
     test('logging, relogging, clearing and backfilling', () async {
       final id = await newHabit();
