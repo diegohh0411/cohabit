@@ -42,6 +42,12 @@ class HabitDay implements Comparable<HabitDay> {
   HabitDay addDays(int days) =>
       HabitDay._(DateTime.utc(_date.year, _date.month, _date.day + days));
 
+  /// Whole calendar days from [other] to this day (negative if earlier).
+  int differenceInDays(HabitDay other) => _date.difference(other._date).inDays;
+
+  /// The Monday of this day's week.
+  HabitDay get weekStart => addDays(1 - weekday);
+
   /// Local midnight of this date.
   DateTime toLocalDate() => DateTime(year, month, day);
 

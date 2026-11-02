@@ -1,6 +1,6 @@
 # Cohabit Product and Technical Spec
 
-Status: draft v1, 2026-11-01
+Status: draft v1.1, 2026-11-01
 
 Cohabit is an open-source, local-first habit tracker for macOS and Android. It finds which habits move together, using analysis that runs on the device.
 
@@ -40,7 +40,7 @@ Out of scope:
 - `id`: UUIDv7
 - `name`
 - `polarity`: `positive` or `negative`
-- `schedule`: days of the week on which the habit applies
+- `schedule`: days of the week on which the habit applies. Each schedule applies only from the habit day it took effect, so editing it never changes how past days are derived (see Schedule history)
 - `archivedAt`: optional
 
 ### Day states
@@ -59,6 +59,14 @@ Rules:
 - `unknown` is never treated as `notDone`, and it is displayed differently.
 - A positive habit with no log stays `unknown` until the user resolves it, including through the review prompt.
 - Negative habits are logged by recording a slip, plus a one-tap clean-day confirmation. Only confirmed days count as clean.
+
+### Schedule history
+
+- `HabitCreated` sets the first schedule. A `HabitEdited` event that changes the schedule carries `effectiveFrom`, the habit day on which it took effect (the day of the edit, by the configured boundary).
+- The schedule in force on a day is the latest schedule, in event order (HLC, then `deviceId`, then event id), that had taken effect by that day. Days before any change use the creation schedule.
+- Unlogged days are derived from the schedule in force on that day: `unknown` if it was scheduled, `skipped` if it was not. The review prompt and the graphs follow the same rule.
+- Edits written before `effectiveFrom` existed take the UTC date of their HLC, which is the same on every device.
+- Projections store the history as JSON (`habits.scheduleHistory`) and are rebuilt from the log, so a rebuild is deterministic. A database without the column is refolded when it is opened.
 
 ### Time
 
@@ -105,21 +113,48 @@ Versioned payloads leave room for numeric values without a migration of existing
 
 ### Commit graph
 
-- Rendered with `CustomPainter`
-- Blue for positive, orange for negative (colour-blind-safe), final values to be checked for contrast
-- `skipped` and `unknown` visually distinct from `notDone`
-- On phones, anchored to today and scrolling back through time
-- Two graphs can be stacked to compare correlated habits
+- Rendered with `CustomPainter` in one pass per graph, with no widget per cell: 10px square cells, a 2px gap, 0 radius, 7 rows (Monday to Sunday) and a column per week
+- Per habit: done or confirmed clean is blue3, slipped is orange, not done is the off fill, `skipped` is a diagonal hatch and `unknown` is a 1px muted outline. Days before the habit existed and future days are blank
+- Overview: the share of logged habits completed that day (negative habits count clean days; skipped and unlogged habits leave the share, and a day with scheduled habits but nothing logged shows as unknown) on off, blue1, blue2, blue3 and blue4. Steps: 0, under a third, under two thirds, under all, all
+- Colour is never the only cue. Each state has a distinct shape, every graph has a legend, hovering (macOS) or pressing arrow keys shows the day's state, and every cell is a labelled button for screen readers
+- Tapping or clicking a cell, or pressing Enter on the keyboard cursor, opens that day for backfill
+- On phones, anchored to today and scrolling back through time; the range always fills the width and covers at least a year
+- Two graphs can be stacked, with days aligned and one shared scroll, to compare correlated habits
 
 ### Design system: precise instrument
 
-- One custom design system on both platforms, with no stock Material or Cupertino look
+- One custom design system on both platforms, with no stock Material or Cupertino look (Material is used only as plumbing for routing, text input and focus)
 - 0px corners, 1px hairlines, no shadows, gradients or illustrations
 - Neutral interface, with colour reserved for data
-- One clean sans plus monospaced numerals
+- Light and dark, following the OS setting
 - Quiet interface, blunt findings, for example `Sleep -> Gym  2.3x  n=84  CI 1.6-3.2`
 
-Per-platform adaptation covers navigation (sidebar on macOS, bottom bar on Android), hover and keyboard vs. touch, scrolling, back gestures and window chrome.
+Palette:
+
+| Token | Dark | Light |
+|---|---|---|
+| background | #0B0E13 | #F7F8FA |
+| surface | #12161D | #FFFFFF |
+| hairline | #2A313C | #D5DAE2 |
+| text | #E8ECF2 | #10151C |
+| muted | #8C96A5 | #5D6776 |
+| off | #1B212B | #E9ECF1 |
+| blue1 | #16365C | #C5DFF8 |
+| blue2 | #1F5A96 | #7DB6EC |
+| blue3 | #3487D6 | #2C78C7 |
+| blue4 | #7CC0FF | #0F4C8F |
+| orange | #F0883E | #C3560C |
+
+Light blue3 and orange are slightly darker than first proposed (#2F7FD1, #C4560C), and dark mode puts background-colour text on blue3 and orange fills, because white text failed WCAG AA on those fills (3.76:1 and 2.53:1 in dark, 4.14:1 and 4.48:1 in light). Everything that carries text or a control meets AA (4.5:1 for text, 3:1 for shapes); the tests check this. The hairline and off fill are deliberately quiet (about 1.1 to 1.5:1) and rely on shape, legend and text detail instead. The unknown outline uses muted so unresolved days stand out.
+
+Typefaces, bundled as assets with their OFL 1.1 licences and never downloaded at runtime:
+
+- Inter for names and sentences
+- JetBrains Mono, with tabular figures, for numbers, metadata lines and small section labels (uppercase, 11px, 0.08em tracking, muted)
+
+Components: segmented log control (30px high with a pointer, at least 44px on touch; selected Done or Clean uses blue3, selected Slipped uses orange), habit row, primary, secondary and ghost buttons, input (hairline border, blue3 on focus), review banner and insight card (left 2px blue3 rule, a sentence, a mono stats line; built but not yet used).
+
+Per-platform adaptation covers navigation (sidebar on macOS, bottom bar on Android), hover and keyboard vs. touch, scrolling, back gestures and window chrome. On macOS, command-1 to command-4 switch sections, command-N adds a habit and Escape goes back.
 
 ## Analysis
 
@@ -202,5 +237,4 @@ Android-only. A rule turns a measurement into a yes/no result, for example `Slee
 ## Open questions
 
 - Should a positive habit become `notDone` automatically after the review window?
-- What is the final colour palette and typeface?
 - Which notifications are worth having, given the no-guilt principle?

@@ -60,7 +60,13 @@ class CohabitRepository {
       nowMillis: () => clockNow().millisecondsSinceEpoch,
       initial: newestHlc == null ? null : Hlc.parse(newestHlc),
     );
-    return CohabitRepository._(db, deviceId, clock, clockNow);
+    final repository = CohabitRepository._(db, deviceId, clock, clockNow);
+    // Habits projected before schema 2 lack their schedule history.
+    final stale = await (db.select(
+      db.habits,
+    )..where((h) => h.scheduleHistory.equals(''))).get();
+    if (stale.isNotEmpty) await repository.rebuildProjections();
+    return repository;
   }
 
   // ---------------------------------------------------------------- writes
@@ -142,7 +148,11 @@ class CohabitRepository {
     await _record(EventTypes.habitEdited, {
       'habitId': habitId,
       if (name != null) 'name': _validName(name),
-      if (schedule != null) 'schedule': _sortedSchedule(schedule),
+      if (schedule != null) ...{
+        'schedule': _sortedSchedule(schedule),
+        // A schedule applies from the day it was set, never to earlier days.
+        'effectiveFrom': (await currentHabitDay()).toString(),
+      },
     });
   }
 
@@ -321,6 +331,24 @@ class CohabitRepository {
       _db.select(_db.dayStates)
         ..where((d) => d.habitDay.equals(day.toString()));
 
+  /// Every resolved day state, as logged state by habit and day. Feeds the
+  /// commit graphs.
+  Stream<Map<String, Map<HabitDay, DayState>>> watchLoggedStates() =>
+      _db.select(_db.dayStates).watch().map(_toLogged);
+
+  Future<Map<String, Map<HabitDay, DayState>>> loggedStates() =>
+      _db.select(_db.dayStates).get().then(_toLogged);
+
+  Map<String, Map<HabitDay, DayState>> _toLogged(List<DayStateRow> rows) {
+    final out = <String, Map<HabitDay, DayState>>{};
+    for (final r in rows) {
+      (out[r.habitId] ??= {})[HabitDay.parse(r.habitDay)] = DayState.parse(
+        r.state,
+      );
+    }
+    return out;
+  }
+
   // -------------------------------------------------------------- settings
 
   Future<int> dayBoundaryMinutes() async {
@@ -371,19 +399,41 @@ class CohabitRepository {
     id: r.id,
     name: r.name,
     polarity: HabitPolarity.parse(r.polarity),
-    schedule: {
-      for (var d = 1; d <= 7; d++)
-        if (r.scheduleMask & (1 << (d - 1)) != 0) d,
-    },
+    schedule: _fromMask(r.scheduleMask),
     createdDay: HabitDay.parse(r.createdDay),
     archivedAt: r.archivedAt == null ? null : DateTime.parse(r.archivedAt!),
+    scheduleHistory: r.scheduleHistory.isEmpty
+        ? null
+        : [
+            for (final c in jsonDecode(r.scheduleHistory) as List)
+              ScheduleChange(
+                from: (c as List)[0] == null
+                    ? null
+                    : HabitDay.parse(c[0] as String),
+                schedule: _fromMask(c[1] as int),
+              ),
+          ],
   );
+
+  static int _mask(Set<int> schedule) =>
+      schedule.fold(0, (m, d) => m | (1 << (d - 1)));
+
+  static Set<int> _fromMask(int mask) => {
+    for (var d = 1; d <= 7; d++)
+      if (mask & (1 << (d - 1)) != 0) d,
+  };
 
   HabitsCompanion _habitCompanion(Habit h) => HabitsCompanion.insert(
     id: h.id,
     name: h.name,
     polarity: h.polarity.wireName,
-    scheduleMask: h.schedule.fold(0, (m, d) => m | (1 << (d - 1))),
+    scheduleMask: _mask(h.schedule),
+    scheduleHistory: Value(
+      jsonEncode([
+        for (final c in h.scheduleHistory)
+          [c.from?.toString(), _mask(c.schedule)],
+      ]),
+    ),
     createdDay: h.createdDay.toString(),
     archivedAt: Value(h.archivedAt?.toUtc().toIso8601String()),
   );

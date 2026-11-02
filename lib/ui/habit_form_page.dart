@@ -1,7 +1,15 @@
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart' show setEquals;
 
+import '../design/buttons.dart';
+import '../design/confirm_dialog.dart';
+import '../design/page_scaffold.dart';
+import '../design/pressable.dart';
+import '../design/section_label.dart';
+import '../design/segmented_log_control.dart';
+import '../design/text_field.dart';
+import '../design/tokens.dart';
 import '../domain/day_state.dart';
 import '../domain/habit.dart';
 import '../state/providers.dart';
@@ -56,99 +64,148 @@ class _HabitFormPageState extends ConsumerState<HabitFormPage> {
   }
 
   Future<void> _archive() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Archive habit?'),
-        content: const Text('It leaves your lists. Its history is kept.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const ValueKey('confirm-archive'),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Archive'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Archive habit?',
+      message: 'It leaves your lists. Its history is kept.',
+      confirmLabel: 'Archive',
+      confirmKey: const ValueKey('confirm-archive'),
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     await ref.read(repositoryProvider).archiveHabit(widget.habit!.id);
     if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(_isEdit ? 'Edit habit' : 'New habit')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+    final c = context.colors;
+    return PageScaffold(
+      title: _isEdit ? 'Edit habit' : 'New habit',
+      child: PageBody(
         children: [
-          TextField(
-            key: const ValueKey('habit-name'),
+          CohabitTextField(
+            fieldKey: const ValueKey('habit-name'),
+            label: 'Name',
             controller: _name,
             autofocus: !_isEdit,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'Name'),
             onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: 16),
-          SegmentedButton<HabitPolarity>(
+          const SizedBox(height: Space.l),
+          const SectionLabel('Type'),
+          const SizedBox(height: Space.xs),
+          SegmentedLogControl<HabitPolarity>(
             key: const ValueKey('habit-polarity'),
-            segments: const [
-              ButtonSegment(
-                value: HabitPolarity.positive,
-                label: Text('Build'),
-              ),
-              ButtonSegment(
-                value: HabitPolarity.negative,
-                label: Text('Avoid'),
-              ),
+            semanticLabel: 'Habit type',
+            selected: _polarity,
+            onSelected: _isEdit ? null : (p) => setState(() => _polarity = p),
+            options: const [
+              LogOption(value: HabitPolarity.positive, label: 'Build'),
+              LogOption(value: HabitPolarity.negative, label: 'Avoid'),
             ],
-            selected: {_polarity},
-            onSelectionChanged: _isEdit
-                ? null
-                : (s) => setState(() => _polarity = s.first),
           ),
           if (_isEdit)
-            const Padding(
-              padding: EdgeInsets.only(top: 4),
-              child: Text('Type cannot change after creation.'),
+            Padding(
+              padding: const EdgeInsets.only(top: Space.xs),
+              child: Text(
+                'Type cannot change after creation.',
+                style: CohabitType.meta(c),
+              ),
             ),
-          const SizedBox(height: 16),
-          const Text('Days'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
+          const SizedBox(height: Space.l),
+          const SectionLabel('Days'),
+          const SizedBox(height: Space.xs),
+          Row(
             children: [
-              for (var d = 1; d <= 7; d++)
-                FilterChip(
-                  key: ValueKey('weekday-$d'),
-                  label: Text(weekdayNames[d - 1].substring(0, 3)),
-                  selected: _schedule.contains(d),
-                  onSelected: (on) => setState(
-                    () => on ? _schedule.add(d) : _schedule.remove(d),
+              for (var d = 1; d <= 7; d++) ...[
+                if (d > 1) const SizedBox(width: Space.xs),
+                Expanded(
+                  child: _DayToggle(
+                    key: ValueKey('weekday-$d'),
+                    label: weekdayNames[d - 1].substring(0, 3),
+                    selected: _schedule.contains(d),
+                    onTap: () => setState(
+                      () => _schedule.contains(d)
+                          ? _schedule.remove(d)
+                          : _schedule.add(d),
+                    ),
                   ),
                 ),
+              ],
             ],
           ),
-          const SizedBox(height: 24),
-          FilledButton(
-            key: const ValueKey('save-habit'),
-            onPressed: _valid ? _save : null,
-            child: const Text('Save'),
-          ),
-          if (_isEdit) ...[
-            const SizedBox(height: 8),
-            OutlinedButton(
-              key: const ValueKey('archive-habit'),
-              onPressed: _archive,
-              child: const Text('Archive'),
+          if (_isEdit)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.xs),
+              child: Text(
+                'A new schedule applies from today. Earlier days keep the '
+                'schedule they had.',
+                style: CohabitType.meta(c),
+              ),
             ),
-          ],
+          const SizedBox(height: Space.xl),
+          Row(
+            children: [
+              CohabitButton.primary(
+                key: const ValueKey('save-habit'),
+                label: 'Save',
+                onPressed: _valid ? _save : null,
+              ),
+              if (_isEdit) ...[
+                const SizedBox(width: Space.s),
+                CohabitButton.secondary(
+                  key: const ValueKey('archive-habit'),
+                  label: 'Archive',
+                  onPressed: _archive,
+                ),
+              ],
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _DayToggle extends StatelessWidget {
+  const _DayToggle({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Pressable(
+      onPressed: onTap,
+      selected: selected,
+      builder: (context, s) => Container(
+        height: ControlSize.of(context),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected
+              ? c.text
+              : s.hovered
+              ? c.off
+              : c.surface,
+          border: Border.all(color: s.focused ? c.blue3 : c.hairline),
+        ),
+        foregroundDecoration: s.focused
+            ? BoxDecoration(border: Border.all(color: c.blue3, width: 2))
+            : null,
+        child: Text(
+          label,
+          style: CohabitType.control(c).copyWith(
+            color: selected ? c.background : c.text,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
       ),
     );
   }

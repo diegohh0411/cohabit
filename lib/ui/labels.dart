@@ -12,7 +12,7 @@ const weekdayNames = [
   'Sunday',
 ];
 const weekdayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const _months = [
+const monthShort = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
@@ -20,7 +20,7 @@ const _months = [
 /// e.g. `Sun 1 Nov 2026`.
 String formatDay(HabitDay day) =>
     '${weekdayNames[day.weekday - 1].substring(0, 3)} ${day.day} '
-    '${_months[day.month - 1]} ${day.year}';
+    '${monthShort[day.month - 1]} ${day.year}';
 
 /// The action buttons for a habit, in display order.
 List<({DayState state, String label})> actionsFor(Habit habit) =>

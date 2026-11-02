@@ -32,8 +32,14 @@ class Habits extends Table {
   TextColumn get name => text()();
   TextColumn get polarity => text()();
 
-  /// Bitmask of scheduled weekdays: bit 0 = Monday .. bit 6 = Sunday.
+  /// Bitmask of the latest scheduled weekdays: bit 0 = Monday .. bit 6 =
+  /// Sunday.
   IntColumn get scheduleMask => integer()();
+
+  /// JSON `[[effectiveFrom|null, mask], ...]` in event order; see
+  /// `Habit.scheduleHistory`. Empty only on rows written before schema 2,
+  /// which the repository refolds on open.
+  TextColumn get scheduleHistory => text().withDefault(const Constant(''))();
   TextColumn get createdDay => text()();
 
   /// ISO-8601 UTC instant, or null.
@@ -75,7 +81,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.persistent() : super(driftDatabase(name: 'cohabit'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -90,6 +96,13 @@ class AppDatabase extends _$AppDatabase {
             CREATE TRIGGER events_no_delete BEFORE DELETE ON events
             BEGIN SELECT RAISE(ABORT, 'events are append-only'); END
           ''');
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        // Rows keep an empty history until the repository refolds them from
+        // the event log on open.
+        await m.addColumn(habits, habits.scheduleHistory);
+      }
     },
   );
 }
