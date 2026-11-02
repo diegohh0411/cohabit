@@ -10,6 +10,7 @@ import '../domain/habit_day.dart';
 import '../domain/hlc.dart';
 import '../domain/resolution.dart';
 import 'database.dart';
+import 'backup.dart';
 
 const _deviceIdKey = 'deviceId';
 const _dayBoundaryKey = 'dayBoundaryMinutes';
@@ -23,7 +24,7 @@ class CohabitRepository {
   CohabitRepository._(this._db, this.deviceId, this._clock, this._now);
 
   final AppDatabase _db;
-  final HlcClock _clock;
+  HlcClock _clock;
   final DateTime Function() _now;
   static const _uuid = Uuid();
 
@@ -69,14 +70,143 @@ class CohabitRepository {
     return repository;
   }
 
+  Future<String> exportBackup() => _db.transaction(
+    () async => BackupDocument(
+      exportedAt: _now().toUtc(),
+      dayBoundaryMinutes: await dayBoundaryMinutes(),
+      events: await events(),
+    ).encode(),
+  );
+
+  Future<({int habits, int logs, int newEvents, int duplicates, int boundary})>
+  previewRestore(String input) => _db.transaction(() async {
+    final backup = BackupDocument.decode(input);
+    final stored = {for (final e in await events()) e.id: e};
+    validateEvents(
+      backup.events,
+      existingHabitIds: stored.values
+          .where((e) => e.type == EventTypes.habitCreated)
+          .map((e) => e.habitId!)
+          .toSet(),
+    );
+    final creates = {...stored.values, ...backup.events}
+        .where((e) => e.type == EventTypes.habitCreated)
+        .map((e) => e.habitId)
+        .toSet();
+    var added = 0;
+    final candidate = HlcClock(
+      nowMillis: () => _now().millisecondsSinceEpoch,
+      initial: _clock.latest,
+    );
+    for (final e in backup.events) {
+      if (!creates.contains(e.habitId)) {
+        throw const FormatException('Missing habit');
+      }
+      candidate.receive(e.hlc);
+      final old = stored[e.id];
+      if (old != null) {
+        if (!_sameEvent(old, e)) {
+          throw const FormatException('Conflicting event ID');
+        }
+      } else {
+        stored[e.id] = e;
+        added++;
+      }
+    }
+    return (
+      habits: backup.events.map((e) => e.habitId).toSet().length,
+      logs: backup.events
+          .where((e) => e.type == EventTypes.dayStateSet)
+          .map((e) => (e.habitId, e.habitDay.toString()))
+          .toSet()
+          .length,
+      newEvents: added,
+      duplicates: backup.events.length - added,
+      boundary: backup.dayBoundaryMinutes,
+    );
+  });
+
+  bool _sameEvent(Event a, Event b) {
+    return canonicalJson(a.toJson()) == canonicalJson(b.toJson());
+  }
+
+  Future<void> restoreBackup(String input, {bool restoreBoundary = false}) =>
+      _coordinate(() async {
+        HlcClock? committed;
+        await _db.transaction(() async {
+          await previewRestore(input);
+          final backup = BackupDocument.decode(input);
+          final candidate = HlcClock(
+            nowMillis: () => _now().millisecondsSinceEpoch,
+            initial: _clock.latest,
+          );
+          final ids = (await events()).map((e) => e.id).toSet();
+          for (final e in backup.events) {
+            if (!ids.add(e.id)) continue;
+            candidate.receive(e.hlc);
+            await _db
+                .into(_db.events)
+                .insert(
+                  EventsCompanion.insert(
+                    id: e.id,
+                    deviceId: e.deviceId,
+                    hlc: e.hlc.encoded,
+                    schemaVersion: e.schemaVersion,
+                    type: e.type,
+                    payload: e.payloadJson,
+                    habitId: Value(e.habitId),
+                    habitDay: Value(e.habitDay?.toString()),
+                  ),
+                );
+          }
+          await rebuildProjections();
+          if (restoreBoundary) {
+            await _setDayBoundaryMinutes(backup.dayBoundaryMinutes);
+          }
+          committed = candidate;
+        });
+        _clock = committed!;
+      });
+
+  Future<String> exportCsv() => _db.transaction(() async {
+    final habits = {
+      for (final h in await this.habits(includeArchived: true)) h.id: h,
+    };
+    final rows = await _db.select(_db.dayStates).get();
+    rows.sort(
+      (a, b) => ('${a.habitId}/${a.habitDay}').compareTo(
+        '${b.habitId}/${b.habitDay}',
+      ),
+    );
+    return '${[
+      ['habitId', 'name', 'polarity', 'archivedAt', 'date', 'state', 'source', 'timestamp'],
+      for (final r in rows) [r.habitId, habits[r.habitId]!.name, habits[r.habitId]!.polarity.wireName, habits[r.habitId]!.archivedAt?.toIso8601String() ?? '', r.habitDay, r.state, r.source, r.loggedAt],
+    ].map((r) => r.map((v) => csvCell(v.toString())).join(',')).join('\r\n')}\r\n';
+  });
+
   // ---------------------------------------------------------------- writes
 
   /// Appends [event] and updates projections. Returns false, changing
   /// nothing, if the event was already applied.
-  Future<bool> apply(Event event) {
-    return _db.transaction(() async {
-      if (event.deviceId != deviceId) _clock.receive(event.hlc);
+  Future<void> _pending = Future.value();
+  Future<T> _coordinate<T>(Future<T> Function() action) {
+    final result = _pending.then((_) => action());
+    _pending = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return result;
+  }
 
+  HlcClock _candidate() => HlcClock(
+    nowMillis: () => _now().millisecondsSinceEpoch,
+    initial: _clock.latest,
+  );
+  Future<bool> apply(Event event) => _coordinate(() async {
+    final candidate = _candidate()..receive(event.hlc);
+    final result = await _apply(event);
+    if (result) _clock = candidate;
+    return result;
+  });
+  Future<bool> _apply(Event event) {
+    return _db.transaction(() async {
       final seen = await (_db.select(
         _db.events,
       )..where((e) => e.id.equals(event.id))).getSingleOrNull();
@@ -104,17 +234,22 @@ class CohabitRepository {
     });
   }
 
-  Future<Event> _record(String type, Map<String, Object?> payload) async {
+  Future<Event> _record(
+    String type,
+    Future<Map<String, Object?>> Function() payload,
+  ) => _coordinate(() async {
+    final candidate = _candidate();
     final event = Event(
       id: _uuid.v7(),
       deviceId: deviceId,
-      hlc: _clock.send(),
+      hlc: candidate.send(),
       type: type,
-      payload: payload,
+      payload: await payload(),
     );
-    await apply(event);
+    await _apply(event);
+    _clock = candidate;
     return event;
-  }
+  });
 
   /// Creates a habit and returns its id.
   Future<String> createHabit({
@@ -126,14 +261,17 @@ class CohabitRepository {
     _validSchedule(schedule);
     final habitId = _uuid.v7();
     final now = _now();
-    await _record(EventTypes.habitCreated, {
-      'habitId': habitId,
-      'name': trimmed,
-      'polarity': polarity.wireName,
-      'schedule': _sortedSchedule(schedule),
-      'createdDay': (await currentHabitDay()).toString(),
-      'createdAt': now.toUtc().toIso8601String(),
-    });
+    await _record(
+      EventTypes.habitCreated,
+      () async => {
+        'habitId': habitId,
+        'name': trimmed,
+        'polarity': polarity.wireName,
+        'schedule': _sortedSchedule(schedule),
+        'createdDay': (await currentHabitDay()).toString(),
+        'createdAt': now.toUtc().toIso8601String(),
+      },
+    );
     return habitId;
   }
 
@@ -145,23 +283,29 @@ class CohabitRepository {
   }) async {
     await _requireHabit(habitId);
     if (schedule != null) _validSchedule(schedule);
-    await _record(EventTypes.habitEdited, {
-      'habitId': habitId,
-      if (name != null) 'name': _validName(name),
-      if (schedule != null) ...{
-        'schedule': _sortedSchedule(schedule),
-        // A schedule applies from the day it was set, never to earlier days.
-        'effectiveFrom': (await currentHabitDay()).toString(),
+    await _record(
+      EventTypes.habitEdited,
+      () async => {
+        'habitId': habitId,
+        if (name != null) 'name': _validName(name),
+        if (schedule != null) ...{
+          'schedule': _sortedSchedule(schedule),
+          // A schedule applies from the day it was set, never to earlier days.
+          'effectiveFrom': (await currentHabitDay()).toString(),
+        },
       },
-    });
+    );
   }
 
   Future<void> archiveHabit(String habitId) async {
     await _requireHabit(habitId);
-    await _record(EventTypes.habitArchived, {
-      'habitId': habitId,
-      'archivedAt': _now().toUtc().toIso8601String(),
-    });
+    await _record(
+      EventTypes.habitArchived,
+      () async => {
+        'habitId': habitId,
+        'archivedAt': _now().toUtc().toIso8601String(),
+      },
+    );
   }
 
   /// Records the state of [habitId] on [day]. Any past day can be edited;
@@ -173,13 +317,16 @@ class CohabitRepository {
     EventSource source = EventSource.manual,
   }) async {
     await _requireHabit(habitId);
-    await _record(EventTypes.dayStateSet, {
-      'habitId': habitId,
-      'habitDay': day.toString(),
-      'state': state.wireName,
-      'loggedAt': _now().toUtc().toIso8601String(),
-      'source': source.wireName,
-    });
+    await _record(
+      EventTypes.dayStateSet,
+      () async => {
+        'habitId': habitId,
+        'habitDay': day.toString(),
+        'state': state.wireName,
+        'loggedAt': _now().toUtc().toIso8601String(),
+        'source': source.wireName,
+      },
+    );
   }
 
   Future<void> _requireHabit(String habitId) async {
@@ -291,7 +438,7 @@ class CohabitRepository {
     final rows = await (_db.select(
       _db.events,
     )..orderBy([(e) => OrderingTerm.asc(e.hlc)])).get();
-    return rows.map(_eventFromRow).toList();
+    return rows.map(_eventFromRow).toList()..sort(compareEvents);
   }
 
   Future<List<Habit>> habits({bool includeArchived = false}) =>
@@ -367,7 +514,10 @@ class CohabitRepository {
 
   /// Changes the boundary for future logging; existing events keep their
   /// stored `habitDay`.
-  Future<void> setDayBoundaryMinutes(int minutes) async {
+  Future<void> setDayBoundaryMinutes(int minutes) =>
+      _coordinate(() => _setDayBoundaryMinutes(minutes));
+
+  Future<void> _setDayBoundaryMinutes(int minutes) async {
     if (minutes < 0 || minutes > maxDayBoundaryMinutes) {
       throw RangeError.range(minutes, 0, maxDayBoundaryMinutes);
     }
