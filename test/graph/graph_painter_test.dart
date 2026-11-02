@@ -78,7 +78,7 @@ void main() {
         }
       });
 
-      testWidgets('unknown is a 1px hairline outline, hollow inside', (
+      testWidgets('unknown is a 1px muted outline, hollow inside', (
         tester,
       ) async {
         final px = (await tester.runAsync(
@@ -86,10 +86,10 @@ void main() {
         ))!;
         final x0 = styles.indexOf(CellStyle.unknown) * 12;
         for (var i = 0; i < 10; i++) {
-          expect(distance(px.at(x0 + i, 0), colors.hairline), 0);
-          expect(distance(px.at(x0 + i, 9), colors.hairline), 0);
-          expect(distance(px.at(x0, i), colors.hairline), 0);
-          expect(distance(px.at(x0 + 9, i), colors.hairline), 0);
+          expect(distance(px.at(x0 + i, 0), colors.muted), 0);
+          expect(distance(px.at(x0 + i, 9), colors.muted), 0);
+          expect(distance(px.at(x0, i), colors.muted), 0);
+          expect(distance(px.at(x0 + 9, i), colors.muted), 0);
         }
         for (var y = 1; y < 9; y++) {
           for (var x = 1; x < 9; x++) {

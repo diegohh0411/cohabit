@@ -32,7 +32,7 @@ class GraphLegend extends StatelessWidget {
     LegendKind.habit =>
       'Legend: ${_habit.map((e) => e.$2.toLowerCase()).join(', ')}',
     LegendKind.overview =>
-      'Legend: from less to more of the scheduled habits completed',
+      'Legend: from less to more of the logged habits completed',
   };
 
   @override

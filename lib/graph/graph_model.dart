@@ -196,13 +196,14 @@ int overviewLevel(double share) {
   return 4;
 }
 
-/// Share of scheduled habits completed per day.
+/// Share of logged habits completed per day.
 ///
 /// For each day, the habits that existed and were scheduled then (by the
-/// schedule in force that day) count, except those deliberately skipped. Done
-/// positive habits and confirmed-clean negative habits are completions;
-/// unlogged days count against the share, since the overview only measures
-/// what was recorded. Days with nothing to measure are blank.
+/// schedule in force that day) count if they were logged and not deliberately
+/// skipped. Done positive habits and confirmed-clean negative habits are
+/// completions. Unlogged habits are unknown, so they never count against the
+/// share. A day with scheduled habits but none measured shows as unknown;
+/// a day with nothing scheduled is blank.
 GraphSeries overviewSeries(
   List<Habit> habits,
   LoggedStates logged,
@@ -220,25 +221,42 @@ GraphSeries overviewSeries(
       continue;
     }
     var scheduled = 0;
+    var measuredHabits = 0;
+    var unlogged = 0;
     var completed = 0;
     for (final habit in habits) {
       if (day < habit.createdDay || !habit.isScheduledOn(day)) continue;
+      scheduled++;
       final state = logged[habit.id]?[day];
       if (state == DayState.skipped) continue;
-      scheduled++;
-      if (state != null && isCompletion(habit, state)) completed++;
+      if (state == null || state == DayState.unknown) {
+        unlogged++;
+        continue;
+      }
+      measuredHabits++;
+      if (isCompletion(habit, state)) completed++;
     }
     if (scheduled == 0) {
       labels[i] = 'Nothing scheduled';
       continue;
     }
-    final share = completed / scheduled;
+    if (measuredHabits == 0) {
+      if (unlogged > 0) {
+        styles[i] = CellStyle.unknown;
+        labels[i] = 'Nothing logged';
+      } else {
+        labels[i] = 'All skipped';
+      }
+      continue;
+    }
+    final share = completed / measuredHabits;
     measured++;
     shareSum += share;
     styles[i] = CellStyle.values[CellStyle.level0.index + overviewLevel(share)];
     labels[i] =
-        '$completed of $scheduled habits completed '
-        '(${(share * 100).round()}%)';
+        '$completed of $measuredHabits logged habits completed '
+        '(${(share * 100).round()}%)'
+        '${unlogged > 0 ? ', $unlogged not logged' : ''}';
   }
   return GraphSeries(
     title: 'Overview',
@@ -248,7 +266,8 @@ GraphSeries overviewSeries(
     legend: LegendKind.overview,
     summary: measured == 0
         ? 'Overview: no days to measure'
-        : 'Overview: $measured days measured, average completion '
+        : 'Overview: $measured ${measured == 1 ? 'day' : 'days'} measured, '
+              'average completion '
               '${(shareSum / measured * 100).round()}%',
   );
 }

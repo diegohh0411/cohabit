@@ -114,8 +114,8 @@ Versioned payloads leave room for numeric values without a migration of existing
 ### Commit graph
 
 - Rendered with `CustomPainter` in one pass per graph, with no widget per cell: 10px square cells, a 2px gap, 0 radius, 7 rows (Monday to Sunday) and a column per week
-- Per habit: done or confirmed clean is blue3, slipped is orange, not done is the off fill, `skipped` is a diagonal hatch and `unknown` is a 1px hairline outline. Days before the habit existed and future days are blank
-- Overview: the share of scheduled habits completed that day (negative habits count clean days, deliberately skipped habits leave the share, unlogged days count against it) on off, blue1, blue2, blue3 and blue4. Steps: 0, under a third, under two thirds, under all, all
+- Per habit: done or confirmed clean is blue3, slipped is orange, not done is the off fill, `skipped` is a diagonal hatch and `unknown` is a 1px muted outline. Days before the habit existed and future days are blank
+- Overview: the share of logged habits completed that day (negative habits count clean days; skipped and unlogged habits leave the share, and a day with scheduled habits but nothing logged shows as unknown) on off, blue1, blue2, blue3 and blue4. Steps: 0, under a third, under two thirds, under all, all
 - Colour is never the only cue. Each state has a distinct shape, every graph has a legend, hovering (macOS) or pressing arrow keys shows the day's state, and every cell is a labelled button for screen readers
 - Tapping or clicking a cell, or pressing Enter on the keyboard cursor, opens that day for backfill
 - On phones, anchored to today and scrolling back through time; the range always fills the width and covers at least a year
@@ -145,7 +145,7 @@ Palette:
 | blue4 | #7CC0FF | #0F4C8F |
 | orange | #F0883E | #C3560C |
 
-Light blue3 and orange are slightly darker than first proposed (#2F7FD1, #C4560C), and dark mode puts background-colour text on blue3 and orange fills, because white text failed WCAG AA on those fills (3.76:1 and 2.53:1 in dark, 4.14:1 and 4.48:1 in light). Everything that carries text or a control meets AA (4.5:1 for text, 3:1 for shapes); the tests check this. The hairline, off fill and unknown outline are deliberately quiet (about 1.1 to 1.5:1) and rely on shape, legend and text detail instead.
+Light blue3 and orange are slightly darker than first proposed (#2F7FD1, #C4560C), and dark mode puts background-colour text on blue3 and orange fills, because white text failed WCAG AA on those fills (3.76:1 and 2.53:1 in dark, 4.14:1 and 4.48:1 in light). Everything that carries text or a control meets AA (4.5:1 for text, 3:1 for shapes); the tests check this. The hairline and off fill are deliberately quiet (about 1.1 to 1.5:1) and rely on shape, legend and text detail instead. The unknown outline uses muted so unresolved days stand out.
 
 Typefaces, bundled as assets with their OFL 1.1 licences and never downloaded at runtime:
 

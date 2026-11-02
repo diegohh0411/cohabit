@@ -130,7 +130,7 @@ class CommitGraphPainter extends CustomPainter {
     canvas.drawPath(hatchBase, fill..color = colors.off);
     canvas
       ..drawPath(hatchLines, fill..color = colors.muted)
-      ..drawPath(outlines, fill..color = colors.hairline);
+      ..drawPath(outlines, fill..color = colors.muted);
 
     final h = highlight;
     if (h != null && h >= 0 && h < range.length) {
@@ -221,7 +221,7 @@ void paintSwatch(
     case CellStyle.unknown:
       final outline = Path();
       _addOutline(outline, origin);
-      canvas.drawPath(outline, Paint()..color = colors.hairline);
+      canvas.drawPath(outline, Paint()..color = colors.muted);
     default:
       canvas.drawRect(rect, Paint()..color = fillColor(style, colors)!);
   }

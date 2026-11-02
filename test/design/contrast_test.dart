@@ -111,12 +111,14 @@ void main() {
   }
 
   test('documented exceptions: decorative fills are below 3:1 by design', () {
-    // Hairlines, the off fill and the unknown outline are deliberately
+    // Hairlines and the off fill are deliberately
     // quiet. They are never the only cue: each state also has a distinct
     // shape, a legend entry, hover or tap detail and a screen-reader label.
     for (final c in [CohabitColors.dark, CohabitColors.light]) {
       expect(contrast(c.hairline, c.surface), lessThan(3));
       expect(contrast(c.off, c.surface), lessThan(3));
+      // The unknown outline uses muted so unresolved days stand out.
+      expect(contrast(c.muted, c.surface), greaterThanOrEqualTo(3));
     }
   });
 }

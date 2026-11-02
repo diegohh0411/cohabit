@@ -194,7 +194,7 @@ void main() {
     GraphSeries build(List<Habit> habits, LoggedStates logged) =>
         overviewSeries(habits, logged, range, today);
 
-    test('levels from the share of scheduled habits completed', () {
+    test('levels from the share of logged habits completed', () {
       expect(overviewLevel(0), 0);
       expect(overviewLevel(0.2), 1);
       expect(overviewLevel(0.5), 2);
@@ -211,7 +211,7 @@ void main() {
         },
       );
       expect(s.styleOf(mon), CellStyle.level4);
-      expect(s.describe(mon), '2 of 2 habits completed (100%)');
+      expect(s.describe(mon), '2 of 2 logged habits completed (100%)');
 
       final slipped = build(
         [run, smoke],
@@ -221,13 +221,48 @@ void main() {
         },
       );
       expect(slipped.styleOf(mon), CellStyle.level2);
-      expect(slipped.describe(mon), '1 of 2 habits completed (50%)');
+      expect(slipped.describe(mon), '1 of 2 logged habits completed (50%)');
     });
 
-    test('unlogged days count against; nothing done is level 0', () {
+    test('a day with nothing logged is unknown, not zero', () {
       final s = build([run, smoke], {});
+      expect(s.styleOf(mon), CellStyle.unknown);
+      expect(s.describe(mon), 'Nothing logged');
+    });
+
+    test('unlogged habits never count against the share', () {
+      final s = build(
+        [run, smoke],
+        {
+          'run': {mon: DayState.done},
+        },
+      );
+      expect(s.styleOf(mon), CellStyle.level4);
+      expect(
+        s.describe(mon),
+        '1 of 1 logged habits completed (100%), 1 not logged',
+      );
+    });
+
+    test('logged but not completed is level 0', () {
+      final s = build(
+        [run],
+        {
+          'run': {mon: DayState.notDone},
+        },
+      );
       expect(s.styleOf(mon), CellStyle.level0);
-      expect(s.describe(mon), '0 of 2 habits completed (0%)');
+    });
+
+    test('a fully skipped day is blank', () {
+      final s = build(
+        [run],
+        {
+          'run': {mon: DayState.skipped},
+        },
+      );
+      expect(s.styleOf(mon), CellStyle.none);
+      expect(s.describe(mon), 'All skipped');
     });
 
     test('skipped habits leave the denominator', () {
@@ -238,7 +273,7 @@ void main() {
           'smoke': {mon: DayState.skipped},
         },
       );
-      expect(s.describe(mon), '1 of 1 habits completed (100%)');
+      expect(s.describe(mon), '1 of 1 logged habits completed (100%)');
     });
 
     test('only habits scheduled that day and already created count', () {
@@ -252,10 +287,10 @@ void main() {
       );
       expect(
         s.describe(HabitDay(2026, 10, 26)),
-        '1 of 1 habits completed (100%)',
+        '1 of 1 logged habits completed (100%)',
       );
       // Sat 31: weekdays not scheduled, `late` exists and is unlogged.
-      expect(s.describe(saturday), '0 of 1 habits completed (0%)');
+      expect(s.describe(saturday), 'Nothing logged');
     });
 
     test('schedule history decides what was scheduled on a past day', () {
@@ -268,7 +303,7 @@ void main() {
         ],
       );
       final s = build([changed], {});
-      expect(s.styleOf(HabitDay(2026, 10, 29)), CellStyle.level0);
+      expect(s.styleOf(HabitDay(2026, 10, 29)), CellStyle.unknown);
       expect(s.styleOf(HabitDay(2026, 10, 31)), CellStyle.none);
       expect(s.describe(HabitDay(2026, 10, 31)), 'Nothing scheduled');
     });
@@ -285,7 +320,7 @@ void main() {
       );
       expect(s.styleOf(today.addDays(1)), CellStyle.none);
       expect(s.describe(today.addDays(1)), 'Upcoming');
-      expect(s.summary, startsWith('Overview: 7 days measured'));
+      expect(s.summary, startsWith('Overview: 1 day measured'));
       expect(build([], {}).summary, 'Overview: no days to measure');
     });
   });

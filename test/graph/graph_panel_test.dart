@@ -240,10 +240,16 @@ void main() {
       await mouse.moveTo(cellCenter(tester, saturday));
       await tester.pump();
       // Run done, Smoke slipped: one of two.
-      expect(detail(tester), 'Sat 31 Oct 2026 · 1 of 2 habits completed (50%)');
+      expect(
+        detail(tester),
+        'Sat 31 Oct 2026 · 1 of 2 logged habits completed (50%)',
+      );
       await mouse.moveTo(cellCenter(tester, friday));
       await tester.pump();
-      expect(detail(tester), 'Fri 30 Oct 2026 · 1 of 2 habits completed (50%)');
+      expect(
+        detail(tester),
+        'Fri 30 Oct 2026 · 1 of 2 logged habits completed (50%)',
+      );
     });
 
     testWidgets('tap (touch) shows detail and opens the day', (tester) async {
