@@ -6,11 +6,20 @@ import 'tokens.dart';
 /// the left, a sentence in Inter, and a mono stats line such as
 /// `2.3x  n=84  CI 1.6-3.2`.
 ///
-/// Built and tested in Milestone 2; analysis in Milestone 4 will use it.
+/// Used for the findings on the Insights screen.
 class InsightCard extends StatelessWidget {
-  const InsightCard({super.key, required this.sentence, required this.stats});
+  const InsightCard({
+    super.key,
+    required this.sentence,
+    required this.stats,
+    this.semanticsLabel,
+  });
 
   final String sentence;
+
+  /// What a screen reader says instead of the sentence and the raw stats,
+  /// which are written for the eye (`->`, `CI`, `n=`).
+  final String? semanticsLabel;
 
   /// Shown on one mono line, separated by two spaces.
   final List<String> stats;
@@ -20,7 +29,7 @@ class InsightCard extends StatelessWidget {
     final c = context.colors;
     return Semantics(
       container: true,
-      label: '$sentence ${stats.join(', ')}',
+      label: semanticsLabel ?? '$sentence ${stats.join(', ')}',
       child: ExcludeSemantics(
         child: DecoratedBox(
           decoration: BoxDecoration(

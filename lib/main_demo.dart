@@ -88,6 +88,7 @@ Future<CohabitRepository> _seed() async {
   }
 
   final today = HabitDay.fromDate(real);
+  var lastSleepDone = false;
   for (var offset = 0; offset < 420; offset++) {
     now = start.add(Duration(days: offset));
     final day = HabitDay.fromDate(now);
@@ -105,22 +106,28 @@ Future<CohabitRepository> _seed() async {
     } else if (day.weekday != 7 && r < 0.9) {
       await log(run, DayState.notDone);
     }
+    // Reading follows a good night (the day before); that is the lagged
+    // pattern the Insights screen should pick up.
     final r2 = next();
-    if (r2 < 0.7) {
+    final readChance = lastSleepDone ? 0.85 : 0.45;
+    if (r2 < readChance) {
       await log(read, DayState.done);
-    } else if (r2 < 0.9) {
+    } else if (r2 < 0.92) {
       await log(read, DayState.notDone);
     }
     final r3 = next();
-    if (r3 < 0.35 + 0.5 * improving) {
+    final sleepDone = r3 < 0.35 + 0.5 * improving;
+    lastSleepDone = sleepDone;
+    if (sleepDone) {
       await log(sleep, DayState.done);
     } else if (r3 < 0.95) {
       await log(sleep, DayState.notDone);
     } else {
       await log(sleep, DayState.skipped);
     }
+    // Slips on the same day as a bad night: a same-day link.
     final r4 = next();
-    if (r4 < 0.28 - 0.15 * improving) {
+    if (r4 < (sleepDone ? 0.1 : 0.45) - 0.05 * improving) {
       await log(scroll, DayState.done); // a slip
     } else if (r4 < 0.9) {
       await log(scroll, DayState.notDone); // confirmed clean

@@ -1,0 +1,22 @@
+# Self-contained, so `flutter analyze` at the repository root and
+# `dart analyze` here both work without extra dependencies.
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+linter:
+  rules:
+    - always_declare_return_types
+    - avoid_print
+    - avoid_relative_lib_imports
+    - camel_case_types
+    - constant_identifier_names
+    - directives_ordering
+    - prefer_final_fields
+    - prefer_final_locals
+    - prefer_single_quotes
+    - unawaited_futures
+    - unnecessary_this
+    - use_super_parameters

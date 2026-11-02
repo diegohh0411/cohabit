@@ -7,6 +7,7 @@ import '../design/tokens.dart';
 import 'habit_form_page.dart';
 import 'habits_page.dart';
 import 'history_page.dart';
+import 'insights_page.dart';
 import 'navigation.dart';
 import 'settings_page.dart';
 import 'today_page.dart';
@@ -14,6 +15,7 @@ import 'today_page.dart';
 enum Section {
   today('Today'),
   history('History'),
+  insights('Insights'),
   habits('Habits'),
   settings('Settings');
 
@@ -23,6 +25,7 @@ enum Section {
   Widget get page => switch (this) {
     today => const TodayPage(),
     history => const HistoryPage(),
+    insights => const InsightsPage(),
     habits => const HabitsPage(),
     settings => const SettingsPage(),
   };
@@ -66,7 +69,7 @@ class _AppShellState extends State<AppShell> {
     final desktop = isDesktopPlatform(context);
     if (!usesSidebar(context)) return _phone();
 
-    // Command-1..4 switch sections, command-N adds a habit. Desktop only.
+    // Command-1..5 switch sections, command-N adds a habit. Desktop only.
     final bindings = <ShortcutActivator, VoidCallback>{
       if (desktop) ...{
         for (final s in Section.values)
@@ -147,6 +150,7 @@ const _digits = [
   LogicalKeyboardKey.digit2,
   LogicalKeyboardKey.digit3,
   LogicalKeyboardKey.digit4,
+  LogicalKeyboardKey.digit5,
 ];
 
 class _Sidebar extends StatelessWidget {

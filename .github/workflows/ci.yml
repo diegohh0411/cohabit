@@ -32,6 +32,17 @@ jobs:
 
       - run: flutter pub get
 
+      # The analysis package is pure Dart. Its fixtures are committed, so no
+      # Python is needed here (see packages/cohabit_analysis/tool).
+      - name: Analysis package analyze and tests
+        working-directory: packages/cohabit_analysis
+        run: |
+          dart pub get
+          dart analyze
+          dart test
+
+      # Root analysis also visits the nested package tests, so resolve their
+      # development dependencies before running it.
       - name: Analyze
         run: flutter analyze
 
