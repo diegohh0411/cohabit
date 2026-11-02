@@ -32,9 +32,6 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Analyze
-        run: flutter analyze
-
       # The analysis package is pure Dart. Its fixtures are committed, so no
       # Python is needed here (see packages/cohabit_analysis/tool).
       - name: Analysis package analyze and tests
@@ -43,6 +40,11 @@ jobs:
           dart pub get
           dart analyze
           dart test
+
+      # Root analysis also visits the nested package tests, so resolve their
+      # development dependencies before running it.
+      - name: Analyze
+        run: flutter analyze
 
       # Golden images are pixel-exact and were generated on macOS; the
       # painter tests that sample pixels still run here.
