@@ -69,6 +69,8 @@ void main() {
       throwsA(anything),
     );
     expect(await target.events(), isEmpty);
+    expect(await target.habits(includeArchived: true), isEmpty);
+    expect(await target.loggedStates(), isEmpty);
     expect(await target.dayBoundaryMinutes(), 180);
     await b.customStatement('DROP TRIGGER fail_restore');
     await target.restoreBackup(backup, restoreBoundary: true);
@@ -80,7 +82,7 @@ void main() {
       (await source.events()).map((e) => e.toJson()).toList(),
     );
     await target.rebuildProjections();
-    final reopened = await CohabitRepository.open(b, now: () => now);
+    final reopened = target;
     expect((await reopened.habit(id))!.isArchived, isTrue);
     expect(
       (await reopened.habit(id))!.scheduleHistory,
