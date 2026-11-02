@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../design/buttons.dart';
+import '../design/page_scaffold.dart';
+import '../design/review_banner.dart';
+import '../design/section_label.dart';
+import '../design/tokens.dart';
 import '../domain/habit_day.dart';
 import '../state/providers.dart';
 import 'day_page.dart';
-import 'habit_day_tile.dart';
 import 'habit_form_page.dart';
-import 'habits_page.dart';
+import 'habit_log_row.dart';
 import 'labels.dart';
-import 'settings_page.dart';
+import 'navigation.dart';
 
 class TodayPage extends ConsumerWidget {
   const TodayPage({super.key});
@@ -18,56 +22,23 @@ class TodayPage extends ConsumerWidget {
     final today = ref.watch(todayProvider).value;
     final habits = ref.watch(habitsProvider).value;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Today'),
-            if (today != null)
-              Text(
-                formatDay(today),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-          ],
+    return PageScaffold(
+      title: 'Today',
+      subtitle: today == null ? null : formatDay(today),
+      actions: [
+        CohabitButton.secondary(
+          label: 'Day view',
+          onPressed: today == null
+              ? null
+              : () => openPage<void>(context, DayPage(initialDay: today)),
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Day view',
-            icon: const Icon(Icons.calendar_month_outlined),
-            onPressed: today == null
-                ? null
-                : () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => DayPage(initialDay: today),
-                    ),
-                  ),
-          ),
-          IconButton(
-            tooltip: 'Habits',
-            icon: const Icon(Icons.list_alt_outlined),
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute<void>(builder: (_) => const HabitsPage())),
-          ),
-          IconButton(
-            tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute<void>(builder: (_) => const HabitFormPage())),
-        icon: const Icon(Icons.add),
-        label: const Text('Add habit'),
-      ),
-      body: today == null || habits == null
-          ? const Center(child: CircularProgressIndicator())
+        CohabitButton.primary(
+          label: 'Add habit',
+          onPressed: () => openPage<void>(context, const HabitFormPage()),
+        ),
+      ],
+      child: today == null || habits == null
+          ? const SizedBox.shrink()
           : _TodayBody(today: today),
     );
   }
@@ -80,31 +51,40 @@ class _TodayBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final habits = ref.watch(habitsProvider).value ?? const [];
     final states = ref.watch(dayStatesProvider(today)).value ?? const {};
     final scheduled = habits.where((h) => h.isScheduledOn(today)).toList();
 
     if (habits.isEmpty) {
-      return const Center(child: Text('No habits yet. Add one to start.'));
+      return PageBody(
+        children: [
+          Text(
+            'No habits yet. Add one to start.',
+            style: CohabitType.body(c).copyWith(color: c.muted),
+          ),
+        ],
+      );
     }
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 88),
+    return PageBody(
       children: [
         _YesterdayReview(today: today),
+        SectionLabel('Scheduled today · ${scheduled.length}'),
+        const SizedBox(height: Space.s),
         if (scheduled.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('Nothing scheduled today.'),
+          Text(
+            'Nothing scheduled today.',
+            style: CohabitType.body(c).copyWith(color: c.muted),
           ),
         for (final habit in scheduled) ...[
-          HabitDayTile(
+          HabitLogRow(
             key: ValueKey('today-${habit.id}'),
             habit: habit,
             day: today,
             logged: states[habit.id]?.state,
           ),
-          const Divider(),
+          const SizedBox(height: Space.s),
         ],
       ],
     );
@@ -126,47 +106,18 @@ class _YesterdayReview extends ConsumerWidget {
     if (unresolved.isEmpty || dismissed) return const SizedBox.shrink();
 
     final count = unresolved.length;
-    return Card(
-      key: const ValueKey('yesterday-review'),
-      margin: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: Theme.of(context).dividerColor),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Yesterday: $count ${count == 1 ? 'habit' : 'habits'} not logged',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: 4),
-            Text(unresolved.map((h) => h.name).join(', ')),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                FilledButton(
-                  key: const ValueKey('review-yesterday'),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => DayPage(initialDay: yesterday),
-                    ),
-                  ),
-                  child: const Text('Review'),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  key: const ValueKey('dismiss-review'),
-                  onPressed: () => ref
-                      .read(dismissedReviewDayProvider.notifier)
-                      .dismiss(yesterday),
-                  child: const Text('Dismiss'),
-                ),
-              ],
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.l),
+      child: ReviewBanner(
+        key: const ValueKey('yesterday-review'),
+        title:
+            'Yesterday: $count ${count == 1 ? 'habit' : 'habits'} not logged',
+        detail: unresolved.map((h) => h.name).join(', '),
+        reviewKey: const ValueKey('review-yesterday'),
+        dismissKey: const ValueKey('dismiss-review'),
+        onReview: () => openPage<void>(context, DayPage(initialDay: yesterday)),
+        onDismiss: () =>
+            ref.read(dismissedReviewDayProvider.notifier).dismiss(yesterday),
       ),
     );
   }

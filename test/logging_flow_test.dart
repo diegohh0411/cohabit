@@ -1,6 +1,7 @@
 import 'package:cohabit/app.dart';
 import 'package:cohabit/data/database.dart';
 import 'package:cohabit/data/repository.dart';
+import 'package:cohabit/design/buttons.dart';
 import 'package:cohabit/domain/day_state.dart';
 import 'package:cohabit/domain/habit_day.dart';
 import 'package:cohabit/state/providers.dart';
@@ -72,6 +73,10 @@ void main() {
         );
       });
 
+  /// The metadata line of a habit row, which ends with its status.
+  String status(WidgetTester tester, String id) =>
+      tester.widget<Text>(find.byKey(ValueKey('status-$id'))).data!;
+
   /// Unmounts the app and flushes the timers that Riverpod and drift leave
   /// behind on disposal, so the test ends with none pending.
   Future<void> finish(WidgetTester tester) async {
@@ -95,11 +100,11 @@ void main() {
     await start(tester);
 
     expect(find.text('Stretch'), findsOneWidget);
-    expect(find.text('Not logged'), findsOneWidget);
+    expect(status(tester, id), endsWith('Not logged'));
 
     await tester.tap(find.byKey(ValueKey('$id-done')));
     await settle(tester);
-    expect(find.text('Done'), findsNWidgets(2)); // status label + button
+    expect(status(tester, id), endsWith('Done'));
     expect(
       (await db_(tester, () => repo.dayStates(_today)))[id]!.state,
       DayState.done,
@@ -107,7 +112,7 @@ void main() {
 
     await tester.tap(find.byKey(ValueKey('$id-done')));
     await settle(tester);
-    expect(find.text('Not logged'), findsOneWidget);
+    expect(status(tester, id), endsWith('Not logged'));
     expect(
       (await db_(tester, () => repo.dayStates(_today)))[id]!.state,
       DayState.unknown,
@@ -133,7 +138,7 @@ void main() {
     expect(find.text('Slipped'), findsOneWidget);
     expect(find.text('Clean day'), findsOneWidget);
     // Nothing is assumed clean until confirmed.
-    expect(find.text('Not logged'), findsOneWidget);
+    expect(status(tester, id), endsWith('Not logged'));
 
     await tester.tap(find.byKey(ValueKey('$id-notDone')));
     await settle(tester);
@@ -190,7 +195,7 @@ void main() {
     // Today is untouched.
     expect(await db_(tester, () => repo.dayStates(_today)), isEmpty);
 
-    await tester.pageBack();
+    await tester.tap(find.byKey(const ValueKey('back')));
     await settle(tester);
     expect(find.byKey(const ValueKey('yesterday-review')), findsNothing);
     await finish(tester);
@@ -241,22 +246,20 @@ void main() {
     );
     await start(tester);
 
-    await tester.tap(find.byTooltip('Day view'));
+    await tester.tap(find.text('Day view'));
     await tester.pumpAndSettle();
     expect(find.text('Sun 1 Nov 2026'), findsOneWidget);
     // Cannot go past today.
     expect(
       tester
-          .widget<IconButton>(
-            find.widgetWithIcon(IconButton, Icons.chevron_right),
-          )
+          .widget<CohabitButton>(find.byKey(const ValueKey('next-day')))
           .onPressed,
       isNull,
     );
 
-    await tester.tap(find.byTooltip('Previous day'));
+    await tester.tap(find.byKey(const ValueKey('previous-day')));
     await settle(tester);
-    await tester.tap(find.byTooltip('Previous day'));
+    await tester.tap(find.byKey(const ValueKey('previous-day')));
     await settle(tester);
     expect(find.text('Fri 30 Oct 2026'), findsOneWidget);
 
@@ -289,7 +292,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<FilledButton>(find.byKey(const ValueKey('save-habit')))
+          .widget<CohabitButton>(find.byKey(const ValueKey('save-habit')))
           .onPressed,
       isNull,
     );
@@ -315,7 +318,7 @@ void main() {
     // Sunday is unscheduled, so it is not on today's list.
     expect(find.text('Nothing scheduled today.'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Habits'));
+    await tester.tap(find.text('Habits'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(ValueKey('habit-${habit.id}')));
     await tester.pumpAndSettle();
