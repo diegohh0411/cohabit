@@ -27,15 +27,16 @@ class ReviewBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final actions = Row(
-      mainAxisSize: MainAxisSize.min,
+    final actions = Wrap(
+      spacing: Space.s,
+      runSpacing: Space.s,
+      alignment: WrapAlignment.end,
       children: [
         CohabitButton.ghost(
           key: dismissKey,
           label: 'Dismiss',
           onPressed: onDismiss,
         ),
-        const SizedBox(width: Space.s),
         CohabitButton.primary(
           key: reviewKey,
           label: 'Review',
@@ -75,7 +76,7 @@ class ReviewBanner extends StatelessWidget {
                       children: [
                         message,
                         const SizedBox(height: Space.m),
-                        Align(alignment: Alignment.centerRight, child: actions),
+                        actions,
                       ],
                     ),
             ),

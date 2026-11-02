@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark "background" token of the design system. -->
+    <color name="cohabit_background">#0B0E13</color>
+</resources>

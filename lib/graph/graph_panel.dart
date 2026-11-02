@@ -227,73 +227,78 @@ class _GraphViewState extends State<_GraphView> {
       ),
     );
 
+    // The grid is fixed-pitch, so its month, weekday and series labels stop
+    // growing at 1.3x. The detail line and legend below keep the full scale.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Semantics(
-          container: true,
-          label: widget.series.map((s) => s.summary).join('. '),
-          child: Focus(
-            focusNode: _focus,
-            onKeyEvent: _onKey,
-            onFocusChange: (focused) {
-              if (focused) _cursor ??= widget.today;
-            },
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ExcludeSemantics(
-                  child: SizedBox(
-                    width: GraphPanel.gutterWidth,
+        MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: Semantics(
+            container: true,
+            label: widget.series.map((s) => s.summary).join('. '),
+            child: Focus(
+              focusNode: _focus,
+              onKeyEvent: _onKey,
+              onFocusChange: (focused) {
+                if (focused) _cursor ??= widget.today;
+              },
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ExcludeSemantics(
+                    child: SizedBox(
+                      width: GraphPanel.gutterWidth,
+                      height: _totalHeight,
+                      child: Stack(
+                        children: [
+                          for (var i = 0; i < widget.series.length; i++)
+                            for (final row in const [0, 2, 4])
+                              Positioned(
+                                top:
+                                    _blockTop(i) +
+                                    (_multi ? _titleHeight : 0) +
+                                    row * GraphMetrics.pitch -
+                                    2,
+                                child: Text(
+                                  weekdayLetters[row],
+                                  style: labelStyle,
+                                ),
+                              ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: widget.viewportWidth,
                     height: _totalHeight,
                     child: Stack(
                       children: [
-                        for (var i = 0; i < widget.series.length; i++)
-                          for (final row in const [0, 2, 4])
+                        SingleChildScrollView(
+                          controller: _scroll,
+                          scrollDirection: Axis.horizontal,
+                          reverse: true,
+                          child: scrollContent,
+                        ),
+                        if (_multi)
+                          for (var i = 0; i < widget.series.length; i++)
                             Positioned(
-                              top:
-                                  _blockTop(i) +
-                                  (_multi ? _titleHeight : 0) +
-                                  row * GraphMetrics.pitch -
-                                  2,
-                              child: Text(
-                                weekdayLetters[row],
-                                style: labelStyle,
+                              left: 0,
+                              top: _blockTop(i) + 1,
+                              child: IgnorePointer(
+                                child: ExcludeSemantics(
+                                  child: Text(
+                                    widget.series[i].title,
+                                    style: CohabitType.control(c),
+                                  ),
+                                ),
                               ),
                             ),
                       ],
                     ),
                   ),
-                ),
-                SizedBox(
-                  width: widget.viewportWidth,
-                  height: _totalHeight,
-                  child: Stack(
-                    children: [
-                      SingleChildScrollView(
-                        controller: _scroll,
-                        scrollDirection: Axis.horizontal,
-                        reverse: true,
-                        child: scrollContent,
-                      ),
-                      if (_multi)
-                        for (var i = 0; i < widget.series.length; i++)
-                          Positioned(
-                            left: 0,
-                            top: _blockTop(i) + 1,
-                            child: IgnorePointer(
-                              child: ExcludeSemantics(
-                                child: Text(
-                                  widget.series[i].title,
-                                  style: CohabitType.control(c),
-                                ),
-                              ),
-                            ),
-                          ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -341,8 +346,8 @@ class _SeriesCanvas extends StatelessWidget {
   final ValueChanged<HabitDay?> onHover;
   final ValueChanged<HabitDay> onTap;
 
-  HabitDay? _dayAt(Offset position) {
-    final i = GraphMetrics.hitTest(series.range, position);
+  HabitDay? _dayAt(Offset position, {bool snapGaps = false}) {
+    final i = GraphMetrics.hitTest(series.range, position, snapGaps: snapGaps);
     return i == null ? null : series.range.dayAt(i);
   }
 
@@ -355,7 +360,7 @@ class _SeriesCanvas extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapUp: (d) {
-          final day = _dayAt(d.localPosition);
+          final day = _dayAt(d.localPosition, snapGaps: true);
           if (day != null) onTap(day);
         },
         child: CustomPaint(

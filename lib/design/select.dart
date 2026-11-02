@@ -32,7 +32,8 @@ class CohabitSelect<T> extends StatelessWidget {
         ExcludeSemantics(child: SectionLabel(label)),
         const SizedBox(height: Space.xs),
         Container(
-          height: ControlSize.of(context),
+          constraints: BoxConstraints(minHeight: ControlSize.of(context)),
+          alignment: Alignment.centerLeft,
           padding: const EdgeInsets.symmetric(horizontal: Space.m),
           decoration: BoxDecoration(
             color: c.surface,

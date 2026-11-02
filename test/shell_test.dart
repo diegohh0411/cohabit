@@ -104,6 +104,9 @@ void main() {
     testWidgets('bottom bar switches sections; log control is 44px high', (
       tester,
     ) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       await open(tester);
       await oldHabit(tester, 'Read');
       await start(tester);
@@ -141,6 +144,117 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('back')));
       await tester.pumpAndSettle();
       expect(sectionItem('History'), findsOneWidget);
+      await finish(tester);
+    });
+  });
+
+  group('phone layout regressions', () {
+    void phone(WidgetTester tester, {double width = 360, double scale = 1}) {
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+      tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    }
+
+    testWidgets('320px phone and large fonts keep every section usable', (
+      tester,
+    ) async {
+      phone(tester, width: 320, scale: 2);
+      await open(tester);
+      await oldHabit(tester, 'Read a book before sleeping');
+      await oldHabit(tester, 'Doomscrolling', polarity: HabitPolarity.negative);
+      await start(tester);
+
+      for (final label in ['Today', 'History', 'Habits', 'Settings']) {
+        await tester.tap(sectionItem(label));
+        await settle(tester);
+        expect(tester.takeException(), isNull, reason: label);
+        final tab = tester.getRect(sectionItem(label));
+        expect(tab.height, greaterThanOrEqualTo(56));
+        expect(tab.bottom, lessThanOrEqualTo(776));
+      }
+      await finish(tester);
+    });
+
+    testWidgets('Save remains above keyboard and creates a habit on a phone', (
+      tester,
+    ) async {
+      phone(tester, width: 320, scale: 2);
+      await open(tester);
+      await start(tester);
+      await tester.tap(find.text('Add habit'));
+      await tester.pumpAndSettle();
+      expect(sectionItem('History'), findsNothing);
+      for (var day = 1; day <= 7; day++) {
+        expect(
+          tester.getSize(find.byKey(ValueKey('weekday-$day'))).width,
+          greaterThanOrEqualTo(44),
+        );
+      }
+      await tester.enterText(find.byKey(const ValueKey('habit-name')), 'Walk');
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      tester.view.padding = const FakeViewPadding(top: 24);
+      await tester.pumpAndSettle();
+      final save = find.byKey(const ValueKey('save-habit'));
+      expect(tester.getRect(save).bottom, lessThanOrEqualTo(500));
+      expect(tester.takeException(), isNull);
+      await tester.tap(save);
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect((await run(tester, () => repo.habits())).single.name, 'Walk');
+      expect(sectionItem('History'), findsOneWidget);
+      await finish(tester);
+    });
+
+    testWidgets(
+      'Android Back closes details then returns another tab to Today',
+      (tester) async {
+        phone(tester);
+        await open(tester);
+        await start(tester);
+        await tester.tap(sectionItem('History'));
+        await settle(tester);
+        await tester.tap(find.text('Compare'));
+        await tester.pumpAndSettle();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(
+          find.text('No habits yet. Add one to see its history.'),
+          findsOneWidget,
+        );
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.text('No habits yet. Add one to start.'), findsOneWidget);
+        expect(
+          find.text('No habits yet. Add one to see its history.'),
+          findsNothing,
+        );
+        await finish(tester);
+      },
+    );
+
+    testWidgets('rotating a phone changes navigation and keeps selected tab', (
+      tester,
+    ) async {
+      phone(tester);
+      await open(tester);
+      await start(tester);
+      await tester.tap(sectionItem('Settings'));
+      await settle(tester);
+      tester.view.physicalSize = const Size(800, 360);
+      await tester.pumpAndSettle();
+      expect(find.text('Cohabit'), findsOneWidget);
+      expect(find.text('⌘1'), findsNothing);
+      expect(find.text('DAY STARTS AT'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      tester.view.physicalSize = const Size(360, 800);
+      await tester.pumpAndSettle();
+      expect(find.text('Cohabit'), findsNothing);
+      expect(find.text('DAY STARTS AT'), findsOneWidget);
+      expect(tester.takeException(), isNull);
       await finish(tester);
     });
   });

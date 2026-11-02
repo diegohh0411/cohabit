@@ -21,13 +21,23 @@ abstract final class GraphMetrics {
       Offset(range.columnOf(index) * pitch, range.rowOf(index) * pitch);
 
   /// Index of the cell under [position], or null in a gap or off the grid.
-  static int? hitTest(GraphRange range, Offset position) {
+  ///
+  /// With [snapGaps] a point in a gap belongs to the cell above and to the
+  /// left of it, so the whole 12px pitch is a target. Touch uses this, since a
+  /// 10px cell is already smaller than a fingertip.
+  static int? hitTest(
+    GraphRange range,
+    Offset position, {
+    bool snapGaps = false,
+  }) {
     if (position.dx < 0 || position.dy < 0) return null;
     final col = position.dx ~/ pitch;
     final row = position.dy ~/ pitch;
     if (col >= range.weeks || row >= rows) return null;
-    if (position.dx - col * pitch >= cell) return null;
-    if (position.dy - row * pitch >= cell) return null;
+    if (!snapGaps) {
+      if (position.dx - col * pitch >= cell) return null;
+      if (position.dy - row * pitch >= cell) return null;
+    }
     return col * rows + row;
   }
 }

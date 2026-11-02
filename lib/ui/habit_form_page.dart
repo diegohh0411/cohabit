@@ -79,8 +79,33 @@ class _HabitFormPageState extends ConsumerState<HabitFormPage> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final desktop = isDesktopPlatform(context);
+    // Save and Archive sit inline with a pointer. On touch they are pinned
+    // under the form, so they stay above the keyboard and in thumb reach.
+    final save = CohabitButton.primary(
+      key: const ValueKey('save-habit'),
+      label: 'Save',
+      expand: !desktop,
+      onPressed: _valid ? _save : null,
+    );
+    final archive = CohabitButton.secondary(
+      key: const ValueKey('archive-habit'),
+      label: 'Archive',
+      expand: !desktop,
+      onPressed: _archive,
+    );
+    final actions = Row(
+      children: [
+        if (desktop) save else Expanded(child: save),
+        if (_isEdit) ...[
+          const SizedBox(width: Space.s),
+          if (desktop) archive else Expanded(child: archive),
+        ],
+      ],
+    );
     return PageScaffold(
       title: _isEdit ? 'Edit habit' : 'New habit',
+      bottomBar: desktop ? null : actions,
       child: PageBody(
         children: [
           CohabitTextField(
@@ -88,6 +113,10 @@ class _HabitFormPageState extends ConsumerState<HabitFormPage> {
             label: 'Name',
             controller: _name,
             autofocus: !_isEdit,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) {
+              if (_valid) _save();
+            },
             textCapitalization: TextCapitalization.sentences,
             onChanged: (_) => setState(() {}),
           ),
@@ -115,24 +144,35 @@ class _HabitFormPageState extends ConsumerState<HabitFormPage> {
           const SizedBox(height: Space.l),
           const SectionLabel('Days'),
           const SizedBox(height: Space.xs),
-          Row(
-            children: [
-              for (var d = 1; d <= 7; d++) ...[
-                if (d > 1) const SizedBox(width: Space.xs),
-                Expanded(
-                  child: _DayToggle(
-                    key: ValueKey('weekday-$d'),
-                    label: weekdayNames[d - 1].substring(0, 3),
-                    selected: _schedule.contains(d),
-                    onTap: () => setState(
-                      () => _schedule.contains(d)
-                          ? _schedule.remove(d)
-                          : _schedule.add(d),
+          LayoutBuilder(
+            builder: (context, box) {
+              final gap = box.maxWidth < 380 ? 2.0 : Space.xs;
+              final width = (box.maxWidth - 6 * gap) / 7;
+              // Small phones wrap the last day instead of making every
+              // target narrower than the touch control size.
+              return Wrap(
+                spacing: gap,
+                runSpacing: Space.xs,
+                children: [
+                  for (var d = 1; d <= 7; d++)
+                    SizedBox(
+                      width: width < ControlSize.of(context)
+                          ? ControlSize.of(context)
+                          : width,
+                      child: _DayToggle(
+                        key: ValueKey('weekday-$d'),
+                        label: weekdayNames[d - 1].substring(0, 3),
+                        selected: _schedule.contains(d),
+                        onTap: () => setState(
+                          () => _schedule.contains(d)
+                              ? _schedule.remove(d)
+                              : _schedule.add(d),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            ],
+                ],
+              );
+            },
           ),
           if (_isEdit)
             Padding(
@@ -143,24 +183,7 @@ class _HabitFormPageState extends ConsumerState<HabitFormPage> {
                 style: CohabitType.meta(c),
               ),
             ),
-          const SizedBox(height: Space.xl),
-          Row(
-            children: [
-              CohabitButton.primary(
-                key: const ValueKey('save-habit'),
-                label: 'Save',
-                onPressed: _valid ? _save : null,
-              ),
-              if (_isEdit) ...[
-                const SizedBox(width: Space.s),
-                CohabitButton.secondary(
-                  key: const ValueKey('archive-habit'),
-                  label: 'Archive',
-                  onPressed: _archive,
-                ),
-              ],
-            ],
-          ),
+          if (desktop) ...[const SizedBox(height: Space.xl), actions],
         ],
       ),
     );
@@ -186,7 +209,7 @@ class _DayToggle extends StatelessWidget {
       onPressed: onTap,
       selected: selected,
       builder: (context, s) => Container(
-        height: ControlSize.of(context),
+        constraints: BoxConstraints(minHeight: ControlSize.of(context)),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected
@@ -199,11 +222,16 @@ class _DayToggle extends StatelessWidget {
         foregroundDecoration: s.focused
             ? BoxDecoration(border: Border.all(color: c.blue3, width: 2))
             : null,
-        child: Text(
-          label,
-          style: CohabitType.control(c).copyWith(
-            color: selected ? c.background : c.text,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+        // Three letters in a seventh of the width: shrink rather than clip
+        // at large text sizes.
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            style: CohabitType.control(c).copyWith(
+              color: selected ? c.background : c.text,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            ),
           ),
         ),
       ),

@@ -32,11 +32,11 @@ class TodayPage extends ConsumerWidget {
               ? null
               : () => openPage<void>(context, DayPage(initialDay: today)),
         ),
-        CohabitButton.primary(
-          label: 'Add habit',
-          onPressed: () => openPage<void>(context, const HabitFormPage()),
-        ),
       ],
+      primaryAction: PageAction(
+        label: 'Add habit',
+        onPressed: () => openPage<void>(context, const HabitFormPage()),
+      ),
       child: today == null || habits == null
           ? const SizedBox.shrink()
           : _TodayBody(today: today),

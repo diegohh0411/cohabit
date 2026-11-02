@@ -61,28 +61,41 @@ class _ComparePageState extends ConsumerState<ComparePage> {
               logged != null &&
               a != null &&
               b != null) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: CohabitSelect<String>(
-                    fieldKey: const ValueKey('compare-first'),
-                    label: 'Top graph',
-                    value: a.id,
-                    items: names,
-                    onChanged: (id) => setState(() => _first = id),
-                  ),
-                ),
-                const SizedBox(width: Space.l),
-                Expanded(
-                  child: CohabitSelect<String>(
-                    fieldKey: const ValueKey('compare-second'),
-                    label: 'Bottom graph',
-                    value: b.id,
-                    items: names,
-                    onChanged: (id) => setState(() => _second = id),
-                  ),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, box) {
+                final first = CohabitSelect<String>(
+                  fieldKey: const ValueKey('compare-first'),
+                  label: 'Top graph',
+                  value: a.id,
+                  items: names,
+                  onChanged: (id) => setState(() => _first = id),
+                );
+                final second = CohabitSelect<String>(
+                  fieldKey: const ValueKey('compare-second'),
+                  label: 'Bottom graph',
+                  value: b.id,
+                  items: names,
+                  onChanged: (id) => setState(() => _second = id),
+                );
+                // Side by side only when each gets room for a habit name.
+                if (box.maxWidth < 480) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      first,
+                      const SizedBox(height: Space.m),
+                      second,
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: first),
+                    const SizedBox(width: Space.l),
+                    Expanded(child: second),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: Space.xl),
             GraphPanel(

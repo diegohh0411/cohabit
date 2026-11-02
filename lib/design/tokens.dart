@@ -133,6 +133,26 @@ bool isDesktopPlatform(BuildContext context) =>
       _ => false,
     };
 
+/// Layout breakpoints, in logical pixels of the window (not the screen).
+abstract final class Breakpoints {
+  /// At and above this width navigation moves to a side column: tablets and
+  /// wide windows.
+  static const double sidebar = 840;
+
+  /// A phone turned on its side has little height, so it gets the side column
+  /// too once it is at least this wide.
+  static const double landscapeSidebar = 560;
+}
+
+/// Whether navigation is a side column rather than a bottom bar. Desktop
+/// platforms always use it; touch platforms choose by window size.
+bool usesSidebar(BuildContext context) {
+  if (isDesktopPlatform(context)) return true;
+  final size = MediaQuery.sizeOf(context);
+  return size.width >= Breakpoints.sidebar ||
+      (size.width > size.height && size.width >= Breakpoints.landscapeSidebar);
+}
+
 /// Typography: Inter for names and sentences; JetBrains Mono, with tabular
 /// figures, for numbers and small uppercase labels.
 abstract final class CohabitType {

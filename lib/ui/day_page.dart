@@ -40,35 +40,24 @@ class _DayPageState extends ConsumerState<DayPage> {
     final states = ref.watch(dayStatesProvider(_day)).value ?? const {};
     final canGoForward = _day < today;
 
+    // Previous, next and the date picker: above the list with a pointer, and
+    // pinned to the bottom edge on touch, where the thumb is.
+    final desktop = isDesktopPlatform(context);
+    final nav = _DayNav(
+      expand: !desktop,
+      canGoForward: canGoForward,
+      onPrevious: () => setState(() => _day = _day.addDays(-1)),
+      onNext: () => setState(() => _day = _day.addDays(1)),
+      onPick: () => _pick(today),
+    );
+
     return PageScaffold(
       title: formatDay(_day),
       titleKey: const ValueKey('day-title'),
+      bottomBar: desktop ? null : nav,
       child: PageBody(
         children: [
-          Row(
-            children: [
-              CohabitButton.secondary(
-                key: const ValueKey('previous-day'),
-                label: '← Previous',
-                onPressed: () => setState(() => _day = _day.addDays(-1)),
-              ),
-              const SizedBox(width: Space.s),
-              CohabitButton.secondary(
-                key: const ValueKey('next-day'),
-                label: 'Next →',
-                onPressed: canGoForward
-                    ? () => setState(() => _day = _day.addDays(1))
-                    : null,
-              ),
-              const SizedBox(width: Space.s),
-              CohabitButton.ghost(
-                key: const ValueKey('pick-day'),
-                label: 'Pick a date',
-                onPressed: () => _pick(today),
-              ),
-            ],
-          ),
-          const SizedBox(height: Space.l),
+          if (desktop) ...[nav, const SizedBox(height: Space.l)],
           if (habits.isEmpty)
             Text(
               'No habits yet.',
@@ -85,6 +74,67 @@ class _DayPageState extends ConsumerState<DayPage> {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _DayNav extends StatelessWidget {
+  const _DayNav({
+    required this.expand,
+    required this.canGoForward,
+    required this.onPrevious,
+    required this.onNext,
+    required this.onPick,
+  });
+
+  /// Fill the width, with arrow buttons either side of the date picker.
+  final bool expand;
+  final bool canGoForward;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final previous = CohabitButton.secondary(
+      key: const ValueKey('previous-day'),
+      label: expand ? '←' : '← Previous',
+      semanticLabel: 'Previous day',
+      expand: expand,
+      onPressed: onPrevious,
+    );
+    final next = CohabitButton.secondary(
+      key: const ValueKey('next-day'),
+      label: expand ? '→' : 'Next →',
+      semanticLabel: 'Next day',
+      expand: expand,
+      onPressed: canGoForward ? onNext : null,
+    );
+    final pick = CohabitButton.ghost(
+      key: const ValueKey('pick-day'),
+      label: 'Pick a date',
+      expand: expand,
+      onPressed: onPick,
+    );
+    if (!expand) {
+      return Row(
+        children: [
+          previous,
+          const SizedBox(width: Space.s),
+          next,
+          const SizedBox(width: Space.s),
+          pick,
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(flex: 2, child: previous),
+        const SizedBox(width: Space.s),
+        Expanded(flex: 3, child: pick),
+        const SizedBox(width: Space.s),
+        Expanded(flex: 2, child: next),
+      ],
     );
   }
 }
