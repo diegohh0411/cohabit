@@ -111,7 +111,13 @@ void main() {
       await oldHabit(tester, 'Read');
       await start(tester);
 
-      for (final label in ['Today', 'History', 'Habits', 'Settings']) {
+      for (final label in [
+        'Today',
+        'History',
+        'Insights',
+        'Habits',
+        'Settings',
+      ]) {
         expect(sectionItem(label), findsOneWidget, reason: label);
       }
       expect(find.text('Cohabit'), findsNothing, reason: 'no sidebar');
@@ -168,7 +174,13 @@ void main() {
       await oldHabit(tester, 'Doomscrolling', polarity: HabitPolarity.negative);
       await start(tester);
 
-      for (final label in ['Today', 'History', 'Habits', 'Settings']) {
+      for (final label in [
+        'Today',
+        'History',
+        'Insights',
+        'Habits',
+        'Settings',
+      ]) {
         await tester.tap(sectionItem(label));
         await settle(tester);
         expect(tester.takeException(), isNull, reason: label);
@@ -272,7 +284,7 @@ void main() {
         await start(tester);
 
         expect(find.text('Cohabit'), findsOneWidget);
-        for (final hint in ['⌘1', '⌘2', '⌘3', '⌘4']) {
+        for (final hint in ['⌘1', '⌘2', '⌘3', '⌘4', '⌘5']) {
           expect(find.text(hint), findsOneWidget);
         }
         expect(controlHeight(tester), 30);
@@ -308,7 +320,13 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
         await settle(tester);
         expect(find.text('OVERVIEW'), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
+        await settle(tester);
+        expect(find.text('Insights compare habits'), findsOneWidget);
         await tester.sendKeyEvent(LogicalKeyboardKey.digit4);
+        await settle(tester);
+        expect(find.text('ACTIVE'), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.digit5);
         await settle(tester);
         expect(find.text('DAY STARTS AT'), findsOneWidget);
         await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
