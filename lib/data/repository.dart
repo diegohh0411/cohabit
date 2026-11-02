@@ -20,6 +20,15 @@ const _dayBoundaryKey = 'dayBoundaryMinutes';
 /// All writes go through [apply]: the event is appended to the log (a no-op
 /// if its id is already there) and the affected projection rows are refolded
 /// from the log. Projections are therefore a pure function of the event set.
+/// What a restore would add, shown before the user confirms.
+typedef RestorePreview = ({
+  int habits,
+  int logs,
+  int newEvents,
+  int duplicates,
+  int boundary,
+});
+
 class CohabitRepository {
   CohabitRepository._(this._db, this.deviceId, this._clock, this._now);
 
@@ -78,53 +87,53 @@ class CohabitRepository {
     ).encode(),
   );
 
-  Future<({int habits, int logs, int newEvents, int duplicates, int boundary})>
-  previewRestore(String input) => _db.transaction(() async {
-    final backup = BackupDocument.decode(input);
-    final stored = {for (final e in await events()) e.id: e};
-    validateEvents(
-      backup.events,
-      existingHabitIds: stored.values
-          .where((e) => e.type == EventTypes.habitCreated)
-          .map((e) => e.habitId!)
-          .toSet(),
-    );
-    final creates = {...stored.values, ...backup.events}
-        .where((e) => e.type == EventTypes.habitCreated)
-        .map((e) => e.habitId)
-        .toSet();
-    var added = 0;
-    final candidate = HlcClock(
-      nowMillis: () => _now().millisecondsSinceEpoch,
-      initial: _clock.latest,
-    );
-    for (final e in backup.events) {
-      if (!creates.contains(e.habitId)) {
-        throw const FormatException('Missing habit');
-      }
-      candidate.receive(e.hlc);
-      final old = stored[e.id];
-      if (old != null) {
-        if (!_sameEvent(old, e)) {
-          throw const FormatException('Conflicting event ID');
+  Future<RestorePreview> previewRestore(String input) =>
+      _db.transaction(() async {
+        final backup = BackupDocument.decode(input);
+        final stored = {for (final e in await events()) e.id: e};
+        validateEvents(
+          backup.events,
+          existingHabitIds: stored.values
+              .where((e) => e.type == EventTypes.habitCreated)
+              .map((e) => e.habitId!)
+              .toSet(),
+        );
+        final creates = {...stored.values, ...backup.events}
+            .where((e) => e.type == EventTypes.habitCreated)
+            .map((e) => e.habitId)
+            .toSet();
+        var added = 0;
+        final candidate = HlcClock(
+          nowMillis: () => _now().millisecondsSinceEpoch,
+          initial: _clock.latest,
+        );
+        for (final e in backup.events) {
+          if (!creates.contains(e.habitId)) {
+            throw const FormatException('Missing habit');
+          }
+          candidate.receive(e.hlc);
+          final old = stored[e.id];
+          if (old != null) {
+            if (!_sameEvent(old, e)) {
+              throw const FormatException('Conflicting event ID');
+            }
+          } else {
+            stored[e.id] = e;
+            added++;
+          }
         }
-      } else {
-        stored[e.id] = e;
-        added++;
-      }
-    }
-    return (
-      habits: backup.events.map((e) => e.habitId).toSet().length,
-      logs: backup.events
-          .where((e) => e.type == EventTypes.dayStateSet)
-          .map((e) => (e.habitId, e.habitDay.toString()))
-          .toSet()
-          .length,
-      newEvents: added,
-      duplicates: backup.events.length - added,
-      boundary: backup.dayBoundaryMinutes,
-    );
-  });
+        return (
+          habits: backup.events.map((e) => e.habitId).toSet().length,
+          logs: backup.events
+              .where((e) => e.type == EventTypes.dayStateSet)
+              .map((e) => (e.habitId, e.habitDay.toString()))
+              .toSet()
+              .length,
+          newEvents: added,
+          duplicates: backup.events.length - added,
+          boundary: backup.dayBoundaryMinutes,
+        );
+      });
 
   bool _sameEvent(Event a, Event b) {
     return canonicalJson(a.toJson()) == canonicalJson(b.toJson());

@@ -59,9 +59,9 @@ void main() {
   Future<void> start(
     WidgetTester tester, {
     double width = 360,
-    bool desktop = false,
+    double height = 900,
   }) async {
-    tester.view.physicalSize = Size(width, 900);
+    tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1;
     tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
     tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
@@ -275,11 +275,21 @@ void main() {
     expect(await tester.runAsync(repo.dayBoundaryMinutes), 180);
   });
 
+  verify('rotating with the preview open still restores', (tester) async {
+    await start(tester, height: 800, width: 360);
+    await tap(tester, 'Restore backup');
+    tester.view.physicalSize = const Size(1200, 800);
+    await drain(tester);
+    await tap(tester, 'confirm-restore');
+    expect(await tester.runAsync(repo.events), isNotEmpty);
+    expect(find.textContaining('Restore complete.'), findsOneWidget);
+  });
+
   for (final width in [320.0, 360.0, 1200.0]) {
     verify(
       'preview and feedback fit ${width.toInt()}px at double text size',
       (tester) async {
-        await start(tester, width: width, desktop: width > 1000);
+        await start(tester, width: width);
         await tap(tester, 'Restore backup');
         expect(find.byKey(const ValueKey('restore-preview')), findsOneWidget);
         await tap(tester, 'restore-boundary');
