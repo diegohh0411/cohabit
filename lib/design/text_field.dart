@@ -12,6 +12,7 @@ class CohabitTextField extends StatelessWidget {
     this.controller,
     this.onChanged,
     this.onSubmitted,
+    this.textInputAction,
     this.autofocus = false,
     this.hint,
     this.textCapitalization = TextCapitalization.none,
@@ -24,6 +25,7 @@ class CohabitTextField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final bool autofocus;
+  final TextInputAction? textInputAction;
   final TextCapitalization textCapitalization;
 
   /// Key for the underlying [TextField], so tests can enter text.
@@ -47,6 +49,7 @@ class CohabitTextField extends StatelessWidget {
           controller: controller,
           onChanged: onChanged,
           onSubmitted: onSubmitted,
+          textInputAction: textInputAction,
           autofocus: autofocus,
           textCapitalization: textCapitalization,
           cursorColor: c.blue3,

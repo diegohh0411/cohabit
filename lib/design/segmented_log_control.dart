@@ -60,27 +60,31 @@ class SegmentedLogControl<T> extends StatelessWidget {
       container: true,
       label: semanticLabel,
       child: Container(
-        height: height,
+        // Grows with the text scale; labels wrap rather than clip.
+        constraints: BoxConstraints(minHeight: height),
         decoration: BoxDecoration(
           color: c.surface,
           border: Border.all(color: c.hairline),
         ),
-        child: Row(
-          children: [
-            for (var i = 0; i < options.length; i++) ...[
-              if (i > 0) const Hairline(vertical: true),
-              Expanded(
-                child: _Segment<T>(
-                  key: options[i].key,
-                  option: options[i],
-                  selected: options[i].value == selected,
-                  onTap: onSelected == null
-                      ? null
-                      : () => onSelected!(options[i].value),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < options.length; i++) ...[
+                if (i > 0) const Hairline(vertical: true),
+                Expanded(
+                  child: _Segment<T>(
+                    key: options[i].key,
+                    option: options[i],
+                    selected: options[i].value == selected,
+                    onTap: onSelected == null
+                        ? null
+                        : () => onSelected!(options[i].value),
+                  ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -116,14 +120,18 @@ class _Segment<T> extends StatelessWidget {
             : (s.hovered || s.pressed ? c.off : Colors.transparent, c.text);
         return Container(
           alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: Space.s),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.s,
+            vertical: Space.xs,
+          ),
           decoration: BoxDecoration(color: fill),
           foregroundDecoration: s.focused
               ? BoxDecoration(border: Border.all(color: c.blue4, width: 2))
               : null,
           child: Text(
             option.label,
-            maxLines: 1,
+            maxLines: isDesktopPlatform(context) ? 1 : 2,
+            textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
             style: CohabitType.control(c).copyWith(
               color: fg,

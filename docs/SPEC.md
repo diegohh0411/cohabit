@@ -154,7 +154,7 @@ Typefaces, bundled as assets with their OFL 1.1 licences and never downloaded at
 
 Components: segmented log control (30px high with a pointer, at least 44px on touch; selected Done or Clean uses blue3, selected Slipped uses orange), habit row, primary, secondary and ghost buttons, input (hairline border, blue3 on focus), review banner and insight card (left 2px blue3 rule, a sentence, a mono stats line; built but not yet used).
 
-Per-platform adaptation covers navigation (sidebar on macOS, bottom bar on Android), hover and keyboard vs. touch, scrolling, back gestures and window chrome. On macOS, command-1 to command-4 switch sections, command-N adds a habit and Escape goes back.
+Per-platform adaptation covers navigation (sidebar on macOS, bottom tabs on Android phones, sidebar on wide or landscape Android windows), hover and keyboard vs. touch, scrolling, back gestures and window chrome. On macOS, command-1 to command-4 switch sections, command-N adds a habit and Escape goes back.
 
 ## Analysis
 

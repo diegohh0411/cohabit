@@ -15,6 +15,7 @@ class CohabitButton extends StatelessWidget {
     this.variant = ButtonVariant.secondary,
     this.expand = false,
     this.autofocus = false,
+    this.semanticLabel,
   });
 
   const CohabitButton.primary({
@@ -23,6 +24,7 @@ class CohabitButton extends StatelessWidget {
     required this.onPressed,
     this.expand = false,
     this.autofocus = false,
+    this.semanticLabel,
   }) : variant = ButtonVariant.primary;
 
   const CohabitButton.secondary({
@@ -31,6 +33,7 @@ class CohabitButton extends StatelessWidget {
     required this.onPressed,
     this.expand = false,
     this.autofocus = false,
+    this.semanticLabel,
   }) : variant = ButtonVariant.secondary;
 
   const CohabitButton.ghost({
@@ -39,6 +42,7 @@ class CohabitButton extends StatelessWidget {
     required this.onPressed,
     this.expand = false,
     this.autofocus = false,
+    this.semanticLabel,
   }) : variant = ButtonVariant.ghost;
 
   final String label;
@@ -47,6 +51,9 @@ class CohabitButton extends StatelessWidget {
   final bool expand;
   final bool autofocus;
 
+  /// Read instead of [label], for glyph-only labels such as an arrow.
+  final String? semanticLabel;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -54,6 +61,7 @@ class CohabitButton extends StatelessWidget {
     return Pressable(
       onPressed: onPressed,
       autofocus: autofocus,
+      semanticLabel: semanticLabel,
       builder: (context, s) {
         final (Color fill, Color fg, Color border) = switch (variant) {
           ButtonVariant.primary => (

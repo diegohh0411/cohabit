@@ -54,7 +54,7 @@ class GraphLegend extends StatelessWidget {
                   children: [
                     _Swatch(style),
                     const SizedBox(width: 6),
-                    Text(text, style: label),
+                    Flexible(child: Text(text, style: label)),
                   ],
                 ),
             ],

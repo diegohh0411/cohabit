@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../design/buttons.dart';
 import '../design/page_scaffold.dart';
 import '../design/pressable.dart';
 import '../design/section_label.dart';
@@ -23,12 +22,10 @@ class HabitsPage extends ConsumerWidget {
 
     return PageScaffold(
       title: 'Habits',
-      actions: [
-        CohabitButton.primary(
-          label: 'Add habit',
-          onPressed: () => openPage<void>(context, const HabitFormPage()),
-        ),
-      ],
+      primaryAction: PageAction(
+        label: 'Add habit',
+        onPressed: () => openPage<void>(context, const HabitFormPage()),
+      ),
       child: PageBody(
         children: [
           const SectionLabel('Active'),

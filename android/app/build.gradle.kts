@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.cohabit"
+    namespace = "io.github.diegohh0411.cohabit"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,8 +15,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.cohabit"
+        applicationId = "io.github.diegohh0411.cohabit"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

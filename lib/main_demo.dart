@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'data/database.dart';
 import 'data/repository.dart';
+import 'design/system_ui.dart';
 import 'domain/day_state.dart';
 import 'domain/habit_day.dart';
 import 'state/providers.dart';
@@ -23,6 +24,7 @@ import 'ui/app_shell.dart';
 /// environment, which makes repeatable screenshots easy.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await enableEdgeToEdge();
   final repository = await _seed();
   final theme = Platform.environment['COHABIT_THEME'];
   final section = Platform.environment['COHABIT_SECTION'];

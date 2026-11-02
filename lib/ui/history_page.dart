@@ -41,12 +41,11 @@ class HistoryPage extends ConsumerWidget {
 
     return PageScaffold(
       title: 'History',
-      actions: [
-        CohabitButton.secondary(
-          label: 'Compare',
-          onPressed: () => openPage<void>(context, const ComparePage()),
-        ),
-      ],
+      primaryAction: PageAction(
+        label: 'Compare',
+        desktopVariant: ButtonVariant.secondary,
+        onPressed: () => openPage<void>(context, const ComparePage()),
+      ),
       child: today == null || habits == null || logged == null
           ? const SizedBox.shrink()
           : PageBody(
