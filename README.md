@@ -21,7 +21,7 @@ flutter devices
 flutter run -d <device-id>
 ```
 
-The normal entry point starts with an empty, persistent SQLite database. Data stays on the device and survives app restarts. Uninstalling the app or clearing its storage removes that data; export and encrypted backup are still planned.
+The normal entry point starts with an empty, persistent SQLite database. Data stays on the device and survives app restarts. Uninstalling the app or clearing its storage removes that data; use Settings to save a JSON backup before removing it. Encrypted remote backup remains planned.
 
 To explore generated history without writing to disk:
 
@@ -66,3 +66,20 @@ Launcher icons are generated from the commit-graph motif using the Python standa
 ```sh
 python3 tool/generate_launcher_icons.py
 ```
+
+## Backups and spreadsheet export
+
+In Settings → Data, choose **Save backup (JSON)** and select a destination in
+ the system file dialog. JSON backups are unencrypted; keep them private.
+Choose **Restore backup**, select a Cohabit JSON backup, review its counts,
+and confirm to merge. Cancel leaves your data untouched. Duplicate events are
+ignored; event order resolves edits. Restore never deletes existing data and
+preserves this installation's identity. The current day-start time is kept
+unless you explicitly select **Restore day-start time** in the preview.
+
+**Export CSV** saves explicit resolved logs for spreadsheets. CSV cannot restore
+Cohabit and does not include the full event history. Android uses the system
+document picker without broad storage permission; macOS uses sandboxed file
+dialogs. Provider access and available destinations depend on the OS. Encrypted
+remote backups, widgets, menu bar integration and third-party imports remain
+planned.

@@ -5,6 +5,7 @@ import 'design/system_ui.dart';
 import 'design/theme.dart';
 import 'design/tokens.dart';
 import 'ui/app_shell.dart';
+import 'ui/navigation.dart';
 
 class CohabitApp extends StatelessWidget {
   const CohabitApp({
@@ -21,6 +22,7 @@ class CohabitApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Cohabit',
+      navigatorKey: rootNavigatorKey,
       debugShowCheckedModeBanner: false,
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),
