@@ -99,3 +99,9 @@ final yesterdayReviewProvider = Provider<List<Habit>>((ref) {
         h,
   ];
 });
+
+/// Every logged day state, for the commit graphs.
+final loggedStatesProvider =
+    StreamProvider<Map<String, Map<HabitDay, DayState>>>(
+      (ref) => ref.watch(repositoryProvider).watchLoggedStates(),
+    );

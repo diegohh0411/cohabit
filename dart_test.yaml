@@ -1,0 +1,4 @@
+tags:
+  # Pixel-for-pixel images; rasterisation can differ slightly between
+  # operating systems, so CI skips them (see .github/workflows/ci.yml).
+  golden:

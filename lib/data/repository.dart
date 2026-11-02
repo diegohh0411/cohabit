@@ -331,6 +331,24 @@ class CohabitRepository {
       _db.select(_db.dayStates)
         ..where((d) => d.habitDay.equals(day.toString()));
 
+  /// Every resolved day state, as logged state by habit and day. Feeds the
+  /// commit graphs.
+  Stream<Map<String, Map<HabitDay, DayState>>> watchLoggedStates() =>
+      _db.select(_db.dayStates).watch().map(_toLogged);
+
+  Future<Map<String, Map<HabitDay, DayState>>> loggedStates() =>
+      _db.select(_db.dayStates).get().then(_toLogged);
+
+  Map<String, Map<HabitDay, DayState>> _toLogged(List<DayStateRow> rows) {
+    final out = <String, Map<HabitDay, DayState>>{};
+    for (final r in rows) {
+      (out[r.habitId] ??= {})[HabitDay.parse(r.habitDay)] = DayState.parse(
+        r.state,
+      );
+    }
+    return out;
+  }
+
   // -------------------------------------------------------------- settings
 
   Future<int> dayBoundaryMinutes() async {
