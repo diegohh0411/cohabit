@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/page_scaffold.dart';
 import '../design/buttons.dart';
+import '../design/pressable.dart';
 import '../data/backup_files.dart';
 import '../domain/hlc.dart';
 import '../design/section_label.dart';
@@ -53,38 +54,88 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         final confirm = await showDialog<bool>(
           context: context,
           builder: (context) => StatefulBuilder(
-            builder: (context, update) => AlertDialog(
-              shape: const RoundedRectangleBorder(),
-              title: const Text("Restore backup"),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      "${preview.habits} habits · ${preview.logs} day logs\n${preview.newEvents} new events · ${preview.duplicates} duplicates\n\nMerge with your data. Nothing is deleted. Existing event order resolves edits; duplicates are ignored.",
-                    ),
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text("Restore day-start time"),
-                      subtitle: Text(
-                        "Backup: ${_clock(preview.boundary)} · Current: ${_clock(current)}",
+            builder: (context, update) => Dialog(
+              key: const ValueKey('restore-preview'),
+              insetPadding: const EdgeInsets.all(Space.l),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(Space.l),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Restore backup",
+                        style: CohabitType.name(context.colors),
                       ),
-                      value: boundary,
-                      onChanged: (value) => update(() => boundary = value!),
-                    ),
-                  ],
+                      const SizedBox(height: Space.s),
+                      Text(
+                        '${preview.habits} habits · ${preview.logs} day logs\n'
+                        '${preview.newEvents} new events · ${preview.duplicates} duplicates\n\n'
+                        'Merge with your data. Nothing is deleted. Existing '
+                        'event order resolves edits; duplicates are ignored.',
+                        style: CohabitType.body(context.colors),
+                      ),
+                      const SizedBox(height: Space.l),
+                      Text(
+                        'Backup: ${_clock(preview.boundary)} · Current: ${_clock(current)}',
+                        style: CohabitType.meta(context.colors),
+                      ),
+                      Pressable(
+                        key: const ValueKey('restore-boundary'),
+                        semanticLabel: 'Restore day-start time',
+                        selected: boundary,
+                        onPressed: () => update(() => boundary = !boundary),
+                        builder: (context, state) => Container(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: Space.s,
+                          ),
+                          decoration: state.focused
+                              ? BoxDecoration(
+                                  border: Border.all(
+                                    color: context.colors.blue3,
+                                  ),
+                                )
+                              : null,
+                          child: Row(
+                            children: [
+                              ExcludeSemantics(
+                                child: Text(boundary ? '[x]' : '[ ]'),
+                              ),
+                              const SizedBox(width: Space.s),
+                              Expanded(
+                                child: Text(
+                                  'Restore day-start time',
+                                  style: CohabitType.body(context.colors),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: Space.l),
+                      Wrap(
+                        spacing: Space.s,
+                        runSpacing: Space.s,
+                        children: [
+                          CohabitButton.ghost(
+                            key: const ValueKey('cancel-restore'),
+                            onPressed: () => Navigator.pop(context, false),
+                            label: "Cancel",
+                          ),
+                          CohabitButton.primary(
+                            key: const ValueKey('confirm-restore'),
+                            onPressed: () => Navigator.pop(context, true),
+                            label: "Confirm restore",
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text("Cancel"),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text("Confirm restore"),
-                ),
-              ],
             ),
           ),
         );
@@ -165,6 +216,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             Padding(
               padding: const EdgeInsets.only(top: Space.s),
               child: CohabitButton(
+                key: ValueKey(label),
                 label: label,
                 onPressed: busy ? null : () => run(label),
               ),
